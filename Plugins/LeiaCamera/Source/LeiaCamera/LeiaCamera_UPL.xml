@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--GearVR plugin additions-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+  <!-- init section is always evaluated once per architecture -->
+
+  <trace enable="true"/>
+
+  <init>
+    <log text="LeiaCamera init"/>
+  </init>
+
+   <resourceCopies>
+     <log text="Test UPL copying files for $S(Architecture), plugin dir : $S(PluginDir/../../)"/>
+     <copyFile src="$S(PluginDir)/Libraries/Android/com.Leia.LeiaSDK.jar"
+                   dst="$S(BuildDir)/libs/com.Leia.LeiaSDK.jar" />
+    </resourceCopies>
+
+  <!-- optional additions to proguard -->
+  <proguardAdditions>
+    <insert>
+      -keep class android.app.** {
+      *;
+      }
+    </insert>
+    <insert>
+      -keep class android.util.** {
+      *;
+      }
+    </insert>
+    <insert>
+      -keep class com.leia.** {
+      *;
+      }
+    </insert>
+    <insert>
+      <![CDATA[
+      -keepattributes Signature
+      -dontskipnonpubliclibraryclassmembers
+
+     -keepclassmembers class com.epicgames.ue4.GameActivity {
+            public <methods>;
+            public <fields>;
+     }
+    ]]>
+    </insert>
+  </proguardAdditions>
+
+  <!-- optional additions to the GameActivity imports in GameActivity.java -->
+  <gameActivityImportAdditions>
+    <insert>
+      import android.view.KeyEvent;
+      import java.util.ArrayList;
+      import java.util.List;
+      import android.os.Handler;
+      import android.widget.Toast;
+      import android.text.TextUtils;
+      import android.graphics.BitmapFactory;
+      import android.util.Log;
+      import android.app.Fragment;
+      import android.view.LayoutInflater;
+      import android.view.View;
+      import android.view.ViewGroup;
+      import android.leia.*;
+      import android.leia.LeiaManagerUtility;
+      import com.leia.android.lights.DisplayConfig;
+    </insert>
+  </gameActivityImportAdditions>
+
+  <gameActivityClassAdditions>
+    <insert>
+      <![CDATA[
+        LeiaManagerUtility instance;
+
+        public void AndroidThunkJava_AndroidAPI_EnableBacklight()
+        {
+          instance.setBacklightMode(3);
+        }
+
+        public void AndroidThunkJava_AndroidAPI_EnableBacklightWithDelay(int delay)
+        {
+          instance.setBacklightMode(3, delay);
+        }
+
+        public void AndroidThunkJava_AndroidAPI_DisableBacklight()
+        {
+          instance.setBacklightMode(2);
+        }
+
+        public void AndroidThunkJava_AndroidAPI_DisableBacklightWithDelay(int delay)
+        {
+          instance.setBacklightMode(2, delay);
+        }
+
+        public String AndroidThunkJava_AndroidAPI_GetDisplayConfigToCSVString()
+        {
+          DisplayConfig dConfig = instance.getDisplayConfig();
+          String str = "" + dConfig.getDotPitchInMm().x + "\n" + dConfig.getDotPitchInMm().y;
+          str += "\n" + dConfig.getPanelResolution().x + "\n" + dConfig.getPanelResolution().y;
+          str += "\n" + dConfig.getNumViews().x + "\n" + dConfig.getNumViews().y;
+          str += "\n" + dConfig.getAlignmentOffset().x + "\n" + dConfig.getAlignmentOffset().y;
+          str += "\n" + dConfig.getDisplaySizeInMm().x + "\n" + dConfig.getDisplaySizeInMm().y;
+          str += "\n" + dConfig.getViewResolution().x + "\n" + dConfig.getViewResolution().y;
+          str += "\n" + dConfig.getViewSharpeningCoefficients().x.get(0) + "\n" + dConfig.getViewSharpeningCoefficients().x.get(1);
+          str += "\n" + dConfig.getViewSharpeningCoefficients().y.get(0) + "\n" + dConfig.getViewSharpeningCoefficients().y.get(1);
+          str += "\n" + dConfig.getViewSharpeningKernel().x.get(0) + "\n" + dConfig.getViewSharpeningKernel().x.get(1) + "\n" + dConfig.getViewSharpeningKernel().x.get(2) + "\n" + dConfig.getViewSharpeningKernel().x.get(3) + "\n" + dConfig.getViewSharpeningKernel().x.get(4);
+          str += "\n" + dConfig.getViewSharpeningKernel().y.get(0) + "\n" + dConfig.getViewSharpeningKernel().y.get(1) + "\n" + dConfig.getViewSharpeningKernel().y.get(2) + "\n" + dConfig.getViewSharpeningKernel().y.get(3) + "\n" + dConfig.getViewSharpeningKernel().y.get(4);
+          str += "\n" + dConfig.getGamma();
+          str += "\n" + dConfig.getBeta();
+          str += "\n" + dConfig.getInterlacingVectorLandscape()[0] + "\n" + dConfig.getInterlacingVectorLandscape()[1] + "\n" + dConfig.getInterlacingVectorLandscape()[2] + "\n" + dConfig.getInterlacingVectorLandscape()[3];
+          str += "\n" + dConfig.getInterlacingVectorLandscape180()[0] + "\n" + dConfig.getInterlacingVectorLandscape180()[1] + "\n" + dConfig.getInterlacingVectorLandscape180()[2] + "\n" + dConfig.getInterlacingVectorLandscape180()[3];
+          str += "\n" + dConfig.getInterlacingVectorPortrait()[0] + "\n" + dConfig.getInterlacingVectorPortrait()[1] + "\n" + dConfig.getInterlacingVectorPortrait()[2] + "\n" + dConfig.getInterlacingVectorPortrait()[3];
+          str += "\n" + dConfig.getInterlacingVectorPortrait180()[0] + "\n" + dConfig.getInterlacingVectorPortrait180()[1] + "\n" + dConfig.getInterlacingVectorPortrait180()[2] + "\n" + dConfig.getInterlacingVectorPortrait180()[3];
+          for(int i = 0; i < 4; i++)
+          {
+          int index = i * 4;
+          str += "\n" + dConfig.getInterlacingMatrixLandscape()[index] + "\n" + dConfig.getInterlacingMatrixLandscape()[index + 1] + "\n" + dConfig.getInterlacingMatrixLandscape()[index + 2] + "\n" + dConfig.getInterlacingMatrixLandscape()[index + 3];
+          }
+          for(int i = 0; i < 4; i++)
+          {
+          int index = i * 4;
+          str += "\n" + dConfig.getInterlacingMatrixLandscape180()[index] + "\n" + dConfig.getInterlacingMatrixLandscape180()[index + 1] + "\n" + dConfig.getInterlacingMatrixLandscape180()[index + 2] + "\n" + dConfig.getInterlacingMatrixLandscape180()[index + 3];
+          }
+          for(int i = 0; i < 4; i++)
+          {
+          int index = i * 4;
+          str += "\n" + dConfig.getInterlacingMatrixPortrait()[index] + "\n" + dConfig.getInterlacingMatrixPortrait()[index + 1] + "\n" + dConfig.getInterlacingMatrixPortrait()[index + 2] + "\n" + dConfig.getInterlacingMatrixPortrait()[index + 3];
+          }
+          for(int i = 0; i < 4; i++)
+          {
+          int index = i * 4;
+          str += "\n" + dConfig.getInterlacingMatrixPortrait180()[index] + "\n" + dConfig.getInterlacingMatrixPortrait180()[index + 1] + "\n" + dConfig.getInterlacingMatrixPortrait180()[index + 2] + "\n" + dConfig.getInterlacingMatrixPortrait180()[index + 3];
+          }
+          return str;
+        }
+
+        public String AndroidThunkJava_AndroidAPI_GetDisplayConfigToString()
+        {
+          return instance.getDisplayConfig().toString();
+        }
+
+        public boolean AndroidThunkJava_AndroidAPI_IsBacklightEnabled()
+        {
+          return (instance.getBacklightMode() == 3);
+        }
+      ]]>
+    </insert>
+  </gameActivityClassAdditions>
+  
+  <gameActivityOnCreateAdditions>
+     <insert>
+      <![CDATA[
+      instance = new LeiaManagerUtility(this);
+      instance.startup();
+      ]]>
+    </insert>
+  </gameActivityOnCreateAdditions>
+
+  <!-- optional additions to GameActivity onResume in GameActivity.java	-->
+  <gameActivityOnResumeAdditions>
+    <insert>
+      <![CDATA[
+		]]>
+    </insert>
+  </gameActivityOnResumeAdditions>
+  
+</root>
