@@ -32,10 +32,6 @@ DECLARE_JAVA_METHOD(AndroidThunkJava_AndroidAPI_IsBacklightEnabled);
 
 AndroidLeiaDevice::AndroidLeiaDevice()
 {
-	if (OverrideMode != EViewOverrideMode::None)
-	{
-		return;
-	}
 #if PLATFORM_ANDROID
 	INIT_JAVA_METHOD(AndroidThunkJava_AndroidAPI_EnableBacklight, "()V");
 	INIT_JAVA_METHOD(AndroidThunkJava_AndroidAPI_EnableBacklightWithDelay, "(I)V");
@@ -53,10 +49,6 @@ AndroidLeiaDevice::~AndroidLeiaDevice()
 
 void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId)
 {
-	if (OverrideMode != EViewOverrideMode::None)
-	{
-		return;
-	}
 #if PLATFORM_ANDROID
 	JNIEnv* Env = FAndroidApplication::GetJavaEnv(true);
 	if (Env != nullptr)
@@ -75,10 +67,6 @@ void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId)
 
 void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId, int delay)
 {
-	if (OverrideMode != EViewOverrideMode::None)
-	{
-		return;
-	}
 #if PLATFORM_ANDROID
 	JNIEnv* Env = FAndroidApplication::GetJavaEnv(true);
 	if (Env != nullptr)
@@ -97,10 +85,6 @@ void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId, int delay)
 
 BacklightMode AndroidLeiaDevice::GetBacklightMode()
 {
-	if (OverrideMode != EViewOverrideMode::None)
-	{
-		return BacklightMode::MODE_3D;
-	}
 #if PLATFORM_ANDROID
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv(true))
 	{
@@ -113,11 +97,6 @@ BacklightMode AndroidLeiaDevice::GetBacklightMode()
 
 FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 {
-	if (OverrideMode != EViewOverrideMode::None)
-	{
-		return AbstractLeiaDevice::GetDisplayConfig();
-	}
-
 	FString str = "";
 #if PLATFORM_ANDROID
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv(true))

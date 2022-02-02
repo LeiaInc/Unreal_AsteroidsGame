@@ -8,13 +8,9 @@
 UENUM(BlueprintType)
 enum class EViewOverrideMode : uint8
 {
-	LumePad UMETA(DisplayName = "LumePad"),
-	Windows_12p5_8V UMETA(DisplayName = "Windows_12p5_8V"),
-	AndroidPegasus_12p5_8V UMETA(DisplayName = "AndroidPegasus_12p5_8V"),
-	AndroidPegasus_12p3_8V UMETA(DisplayName = "AndroidPegasus_12p3_8V"),
-	Windows_15p6_12V UMETA(DisplayName = "Windows_15p6_12V"),
-	Windows_15p6_13V UMETA(DisplayName = "Windows_15p6_13V"),
-	None UMETA(DisplayName = "NoOverride_UseFirmware")
+	NoOverride UMETA(DisplayName = "NoOverride"),
+	FourView UMETA(DisplayName = "FourView"),
+	EightView UMETA(DisplayName = "EightView")
 };
 
 class LEIACAMERA_API AbstractLeiaDevice : public ILeiaDevice
@@ -34,14 +30,15 @@ public:
 	virtual bool IsConnected() override;
 	virtual void CalibrateSensors() override;
 	virtual FDisplayConfig GetDisplayConfig() override;
+	#if WITH_EDITOR
 	void SetOverride(EViewOverrideMode overrideMode);
+	#endif
 
-	FDisplayConfig GetDisplayConfigAndroidPegasus12p5_8V() const;
-	FDisplayConfig GetDisplayConfigAndroidPegasus12p3_8V() const;
-	FDisplayConfig GetDisplayConfigWindows12p5_8V() const;
-	FDisplayConfig GetDisplayConfigWindows15p6_12V() const;
-	FDisplayConfig GetDisplayConfigWindows15p6_13V() const;
-	FDisplayConfig GetDisplayConfigLumePad() const;
+private:
+#if WITH_EDITOR
+	EViewOverrideMode OverrideMode = EViewOverrideMode::NoOverride;
 
-	EViewOverrideMode OverrideMode = EViewOverrideMode::Windows_15p6_12V;
+	FDisplayConfig Get8VDisplayConfig() const;
+	FDisplayConfig Get4VDisplayConfig() const;
+#endif
 };

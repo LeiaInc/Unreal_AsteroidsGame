@@ -18,7 +18,7 @@
 		{
 			"Name": "LeiaCamera",
 			"Type": "Runtime",
-			"LoadingPhase": "PostConfigInit"
+			"LoadingPhase": "Default"
 		}
 	]
 }

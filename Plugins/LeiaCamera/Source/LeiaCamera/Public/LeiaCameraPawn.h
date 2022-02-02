@@ -4,12 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
-#include "SceneViewExtension.h"
 #include "LeiaCameraBase.h"
 #include "LeiaCameraPawn.generated.h"
-
-
-
 
 UCLASS()
 class LEIACAMERA_API ALeiaCameraPawn : public APawn, public LeiaCameraBase
@@ -31,9 +27,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Camera Grid Setup")
 	FLeiaCameraConstructionInfo ConstructionInfo;
 
-	UPROPERTY(EditAnywhere, Category = "Camera Grid Setup")
-	EViewMode DeviceConfigOverrideMode = EViewMode::Windows_15p6_12V;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Grid Setup")
 	FLeiaCameraRenderingInfo RenderingInfo;
 
@@ -52,10 +45,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
 	UMaterialParameterCollection* ViewSharpeningeMatParamCollection = nullptr;
+
 	/** Array of cameras in the generated grid */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<class AActor*> Cameras;
-
+	TArray<class ASceneCapture2D*> Cameras;
 
 	/** Can be called after modification of RenderingInfo to apply changes */
 	UFUNCTION(BlueprintCallable)
@@ -91,17 +84,19 @@ public:
 	UFUNCTION(BlueprintCallable)
 	float GetCurrentShearValue() const;
 
-	IRendererModule* RendererModule;
-	InterlaceParams interlaceShaderParams;
-	SharpenParams sharpenShaderParams;
 protected:
 
 	UPROPERTY(VisibleDefaultsOnly)
 	USceneComponent* SceneRoot = nullptr;
 
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<ASceneCapture2D> CameraObjRef;
 
 	UPROPERTY(EditAnywhere, Category = "Debug Display")
 	bool bDisplayFrustum = true;
+
+	UPROPERTY(VisibleAnywhere, Category = "Debug Display")
+	EViewMode ViewMode = EViewMode::FourView;
 
 	const FName PropertiesThatRegenerateGrid = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, ConstructionInfo);
 	const FName PropertiesThatRequireProjectionMatrixRecalculation = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, RenderingInfo);
@@ -127,8 +122,6 @@ protected:
 	void Destroyed() override;
 
 	void OnConstruction(const FTransform& Transform) override;
-
-	void SetDeviceOverride();
 
 private:
 

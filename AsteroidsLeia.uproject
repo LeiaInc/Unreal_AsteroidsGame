@@ -2,5 +2,16 @@
 	"FileVersion": 3,
 	"EngineAssociation": "4.26",
 	"Category": "YetiTech Studios",
-	"Description": "Space rock shooter template for Unreal Marketplace. Created by YetiTech Studios."
+	"Description": "Space rock shooter template for Unreal Marketplace. Created by YetiTech Studios.",
+	"Plugins": [
+		{
+			"Name": "SteamVR",
+			"Enabled": false,
+			"SupportedTargetPlatforms": [
+				"Win32",
+				"Win64",
+				"Linux"
+			]
+		}
+	]
 }

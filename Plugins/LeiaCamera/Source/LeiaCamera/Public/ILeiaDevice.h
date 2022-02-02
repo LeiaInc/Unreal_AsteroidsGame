@@ -6,8 +6,6 @@
 #include "UObject/ObjectMacros.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogLeia, Log, All);
-
 struct FDisplayConfig
 {
 	float dotPitchInMM[2] = { 0.0f, 0.0f };
@@ -15,8 +13,8 @@ struct FDisplayConfig
 	int32 numViews[2] = { 4, 1 };
 	int32 alignmentOffset[2] = { 0, 0 };
 	float actCoefficients[4] = { 0.06f, 0.025f, 0.04f, 0.02f };
-	float sharpeningKernelX[10] = {};
-	float sharpeningKernelY[10] = {};
+	float sharpeningKernelX[5] = {};
+	float sharpeningKernelY[5] = {};
 	int32 viewResolution[2] = { 640, 400 };
 	int32 displaySizeInMm[2] = { 0, 0 };
 	FMatrix interlacingMatrixLandscape = { {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {640, 0, 0, 0} };

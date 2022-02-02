@@ -18,9 +18,6 @@ public:
 	// Sets default values for this component's properties
 	ULeiaCameraComponent();
 
-	UPROPERTY(EditAnywhere, Category = "Camera Grid Setup")
-	EViewMode ViewMode = EViewMode::Windows_12p5_8V;
-
 	/** TargetCamera component that will receive post-processed output*/
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Camera Grid Setup")
 	class UCameraComponent* TargetCamera = nullptr;
@@ -49,7 +46,7 @@ public:
 
 	/** Array of cameras in the generated grid */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Instanced, NonTransactional)
-	TArray<class USceneComponent*> Cameras;
+	TArray<class USceneCaptureComponent2D*> Cameras;
 
 	/** Can be called after modification of RenderingInfo to apply changes */
 	UFUNCTION(BlueprintCallable)
@@ -82,8 +79,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ShowCalibrationSqaure(bool show);
 
-	void SetDeviceOverride();
-
 protected:
 
 	UPROPERTY(VisibleDefaultsOnly)
@@ -92,6 +87,8 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Debug Display")
 	bool bDisplayFrustum = true;
 
+	UPROPERTY(VisibleAnywhere, Category = "Debug Display")
+	EViewMode ViewMode = EViewMode::FourView;
 
 	UFUNCTION()
 	void OnScreenOrientationChanged(EScreenOrientation::Type type);

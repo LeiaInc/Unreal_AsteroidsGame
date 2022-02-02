@@ -32,19 +32,15 @@ public class LeiaCamera : ModuleRules
 			
 		
 		PrivateDependencyModuleNames.AddRange(
-            new string[]
-            {
-                "CoreUObject",
-                "Engine",
-                "Slate",
-                "SlateCore",
-                "RHI",
-                "RenderCore",
-				"HeadMountedDisplay",
-				"Projects"
+			new string[]
+			{
+				"CoreUObject",
+				"Engine",
+				"Slate",
+				"SlateCore",
 				// ... add private dependencies that you statically link with here ...	
 			}
-            );
+			);
 		
 		
 		DynamicallyLoadedModuleNames.AddRange(
