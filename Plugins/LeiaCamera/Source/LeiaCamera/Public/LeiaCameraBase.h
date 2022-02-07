@@ -44,7 +44,7 @@ struct FLeiaCameraRenderingInfo
 {
 	GENERATED_BODY()
 
-	/** Distance between spawned cameras */
+	/** Distance scaling between spawned cameras */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "128.0"))
 	float Baseline = 50.0f;
 
@@ -267,7 +267,7 @@ protected:
 		USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB)const;
 
 	/** Returns the value for horizontal relative position of the cameras */
-	float UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo) const;
+	float UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled = true) const;
 
 	/**
 	 * Sets all common ZDP material params by using a MaterialParameterCollectionInstance

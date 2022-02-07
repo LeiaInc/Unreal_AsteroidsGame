@@ -296,7 +296,7 @@ void ALeiaCameraPawn::SpawnCameraGrid(const FLeiaCameraConstructionInfo& constru
 
 			USceneCaptureComponent2D* const sceneCaptureComponent = cameraObj->GetCaptureComponent2D();
 
-			sceneCaptureComponent->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+			sceneCaptureComponent->CaptureSource = ESceneCaptureSource::SCS_FinalColorHDR;
 			sceneCaptureComponent->bCaptureEveryFrame = true;
 			sceneCaptureComponent->bCaptureOnMovement = false;
 			sceneCaptureComponent->bUseCustomProjectionMatrix = true;

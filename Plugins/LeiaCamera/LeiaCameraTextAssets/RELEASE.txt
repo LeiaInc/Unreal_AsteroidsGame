@@ -1,4 +1,4 @@
-LeiaLoft Unreal SDK version 0.0.3b
+LeiaLoft Unreal SDK version 0.0.5
 
 We're excited to launch our first release of our Unreal SDK.  Please note that this is a beta version with APIs that are subject to change as the product matures.
 

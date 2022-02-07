@@ -21,14 +21,17 @@ struct CameraCalculatedParams
 {
 	float ScreenHalfHeight;
 	float ScreenHalfWidth;
-	float EmissionRescalingFactor;
+	float EmissionRescalingFactor = 1.0f;
 
-	CameraCalculatedParams(FLeiaCameraRenderingInfo renderingInfo, const FDisplayConfig::OrientationConfig& display)
+	CameraCalculatedParams(FLeiaCameraRenderingInfo renderingInfo, const FDisplayConfig::OrientationConfig& display, bool emissionRescalingEnabled = true)
 	{
 		ScreenHalfHeight = renderingInfo.ConvergenceDistance * FMath::Tan(renderingInfo.FieldOfView);
 		ScreenHalfWidth = (display.panelResolution[0] / display.panelResolution[1]) * ScreenHalfHeight;
 		float f = (display.viewResolution[1] / 1.0f) / 2.0f / FMath::Tan(renderingInfo.FieldOfView);
-		EmissionRescalingFactor = display.systemDisparityPixels * renderingInfo.Baseline * renderingInfo.ConvergenceDistance / f;
+		if (emissionRescalingEnabled)
+		{
+			EmissionRescalingFactor = display.systemDisparityPixels * renderingInfo.Baseline * renderingInfo.ConvergenceDistance / f;
+		}
 	}
 };
 
@@ -79,9 +82,9 @@ void LeiaCameraBase::DisplayCameraFrustum(const FTransform& localTransform, cons
 
 	for (int32 camIndex = 0; camIndex < constructionInfo.GridWidth; camIndex++)
 	{
-		const FVector relativeLocalPos = { 0.0f, UpdateViews(camIndex, renderingInfo, constructionInfo), 0.0f };
+		const FVector relativeLocalPos = { 0.0f, UpdateViews(camIndex, renderingInfo, constructionInfo, false), 0.0f };
 		const FMatrix projectionMat = CalculateProjectionMatrix(constructionInfo, renderingInfo, relativeLocalPos);
-		const FVector cameraLocation = localTransform.TransformPosition(relativeLocalPos);
+		const FVector cameraLocation = localTransform.TransformPositionNoScale(relativeLocalPos);
 
 		FPlane topPlane, btmPlane, lftPlane, rgtPlane, farPlane, nearPlane, convergencePlane;
 
@@ -601,10 +604,12 @@ float LeiaCameraBase::CalculateAutoZdpShearValue(const FLeiaCameraConstructionIn
 	return shearStrength;
 }
 
-float LeiaCameraBase::UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo) const
+float LeiaCameraBase::UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled/* = true*/) const
 {
-	CameraCalculatedParams calculated = CameraCalculatedParams(renderingInfo, Device->GetDisplayConfig().ToScreenOrientationConfig(CurrentScreenOrientation));
-	float posx = calculated.EmissionRescalingFactor * ((index - constructionInfo.GridWidth * 0.5f) + 0.5f);
+	CameraCalculatedParams calculated = CameraCalculatedParams(renderingInfo, Device->GetDisplayConfig().ToScreenOrientationConfig(CurrentScreenOrientation), emissionRescalingEnabled);
+	float wOffset;
+	CalculateGridOffset(constructionInfo, wOffset);
+	float posx = calculated.EmissionRescalingFactor * (renderingInfo.Baseline * (index - wOffset));
 	return posx;
 }
 
