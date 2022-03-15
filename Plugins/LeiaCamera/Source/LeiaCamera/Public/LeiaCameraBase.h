@@ -14,10 +14,54 @@
 
 class UMaterialInstanceDynamic;
 
+class ASceneCapture2D;
+class USceneComponent;
+
+#define LEIA_STEREO_PATH (1)
+
+UCLASS()
+class LEIACAMERA_API UViewDataComp : public USceneComponent
+{
+	GENERATED_BODY()
+
+public:
+	FMatrix CustomProjectionMatrix;
+	FMatrix ShiftedProjectionMatrix;
+};
+
+UCLASS()
+class LEIACAMERA_API AViewData : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	AViewData(const FObjectInitializer& ObjectInitializer);
+	void Serialize(FArchive& Ar);
+
+	//Makes bouncing between 7summits and this path easier
+	UViewDataComp* GetCaptureComponent2D() { return sceneComp; }
+
+	UViewDataComp* sceneComp;
+};
+
+#if LEIA_STEREO_PATH
+typedef AViewData CaptureActor;
+typedef UViewDataComp CaptureComponent;
+#else
+typedef ASceneCapture2D CaptureActor;
+typedef USceneCaptureComponent2D CaptureComponent;
+#endif
+
+
 UENUM(BlueprintType)
 enum class EViewMode : uint8 {
-	FourView UMETA(DisplayName = "FourView"),
-	EightView UMETA(DisplayName = "EightView")
+	LumePad UMETA(DisplayName = "LumePad"),
+	Windows_12p5_8V UMETA(DisplayName = "Windows_12p5_8V"),
+	AndroidPegasus_12p5_8V UMETA(DisplayName = "AndroidPegasus_12p5_8V"),
+	AndroidPegasus_12p3_8V UMETA(DisplayName = "AndroidPegasus_12p3_8V"),
+	Windows_15p6_12V UMETA(DisplayName = "Windows_15p6_12V"),
+	Windows_15p6_13V UMETA(DisplayName = "Windows_15p6_13V"),
+	None UMETA(DisplayName = "NoOverride_UseFirmware")
 };
 
 USTRUCT(BlueprintType)
@@ -48,6 +92,10 @@ struct FLeiaCameraRenderingInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "128.0"))
 	float Baseline = 50.0f;
 
+	/** Distance ahead of each camera where their frustums converge */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0"))
+		float ConvergenceDistance = 200.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	TEnumAsByte<ECameraProjectionMode::Type> ProjectionType = ECameraProjectionMode::Type::Perspective;
 
@@ -66,10 +114,6 @@ struct FLeiaCameraRenderingInfo
 	/** Distance to far clip plane */
 	UPROPERTY(BlueprintReadWrite)
 	float FarClipPlane = 5000.0f;
-
-	/** Distance ahead of each camera where their frustums converge */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0"))
-	float ConvergenceDistance = 200.0f;
 
 	/** PostProcess Material To Use for DOF*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -115,6 +159,78 @@ struct FLeiaCameraZdpInfo
 	TEnumAsByte<EObjectTypeQuery> ObjectTypeToQuery;
 };
 
+struct InterlaceParams
+{
+	float viewsX;
+	float viewsY;
+	FLinearColor viewRes;
+
+                        //                  Description                    |                How to parse from TINY* getDisplayConfig
+                        //-------------------------------------------------|----------------------------------------------------------------------------------
+    float n;            // non-linear view model                           | ActCoefficientsY[0] / 1000  ActCoefficientsY[0] < 1000 then use default)
+    float d_over_n;     // n-adjusted BLU-LCD distance                     | ConvergenceDistance * (DotPitchInMm / 3) / ViewBoxSize[0], using s * D)
+    float faceX;        // camera x position                               |
+    float faceY;        // camera y position                               |
+    float faceZ;        // camera z position                               |
+    float pixelPitch;   // pixel pitch                                     | DotPitchInMm
+    float du;           // horizontal view spacing                         | DotPitchInMm / 3
+    float dv;           // vertical view spacing                           | Slant * DotPitchInMm
+    float s;            // stretch (BLU relative to LCD)                   | (DotPitchInMm / 3) / ViewBoxSize[0], using s = ?u/IO
+    float cos_theta;    // rotation (BLU relative to LCD)                  |
+    float sin_theta;    // rotation (BLU relative to LCD)                  |
+    float No;           // View number at center / normal                  | AlignmentOffset
+    float peelOffset;   // peel offset                                     |
+    int   viewPeeling;  // peeling enabled/disabled (0=sliding, 1=peeling) |
+    float displayResX;  // full display horizontal resolution              |
+    float displayResY;  // full display vertical resolution                |
+
+    InterlaceParams()
+    {
+        viewsX     = 0;
+        viewsY     = 0;
+        n           = 0.0f;
+        d_over_n    = 0.0f;
+        faceX       = 0.0f;
+        faceY       = 0.0f;
+        faceZ       = 0.0f;
+        pixelPitch  = 0.0f;
+        du          = 0.0f;
+        dv          = 0.0f;
+        s           = 0.0f;
+        cos_theta   = 0.0f;
+        sin_theta   = 0.0f;
+        No          = 0.0f;
+        peelOffset  = 0.0f;
+        viewPeeling = 0;
+        displayResX = 0;
+        displayResY = 0;
+    }
+};
+
+struct SharpenParams
+{
+	float gamma; 
+	float sharpeningCenter;
+	int sharpeningValueCount;
+	FLinearColor sharpeningSize;    // Legacy: Only for material-based shader
+	FLinearColor sharpeningX;       // Legacy: Only for material-based shader
+	FLinearColor sharpeningY;       // Legacy: Only for material-based shader
+	FLinearColor textureInvSize;
+	FLinearColor sharpeningValues[18];
+
+	SharpenParams()
+	{
+		gamma                = 0;
+		sharpeningCenter     = 0;
+		sharpeningValueCount = 0;
+		sharpeningSize       = FLinearColor(0, 0, 0, 0);
+		sharpeningX          = FLinearColor(0, 0, 0, 0);
+		sharpeningY          = FLinearColor(0, 0, 0, 0);
+		textureInvSize       = FLinearColor(0, 0, 0, 0);
+		for (int i = 0; i < 18; i++)
+			sharpeningValues[i] = FLinearColor(0, 0, 0, 0);
+	}
+};
 
 class LEIACAMERA_API LeiaCameraBase
 {
@@ -169,7 +285,7 @@ protected:
 	 */
 	void CreateAndSetRenderTarget(UObject* const worldContext, class USceneCaptureComponent2D* const scenecaptureComp, const FLeiaCameraConstructionInfo& constructionInfo, float gamma = 2.2f) const;
 
-	void SetPostProcessingValuesFromTargetCamera(class USceneCaptureComponent2D* const scenecaptureComp, class UCameraComponent* const targetCamera);
+	void SetPostProcessingValuesFromTargetCamera(USceneCaptureComponent2D* const scenecaptureComp, class UCameraComponent* const targetCamera);
 
 	/**
 	 * Calculates the grid width offset based on the provided Construction Info
@@ -184,7 +300,7 @@ protected:
 	/**
 	 * Calculates and returns a custom projection matrix based on Construction Info, Rendering Info and Index of camera in grid
 	 */
-	FMatrix CalculateProjectionMatrix(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo, const FVector& localCamPos) const;
+	FMatrix CalculateProjectionMatrix(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo, const FVector& localCamPos, FMatrix MainCamTrans = FMatrix::Identity) const;
 
 	/**
 	 * Re-orient the plane's normal to match up with actor's world space rotation
@@ -257,27 +373,34 @@ protected:
 	 * @param worldPos - World space location
 	 * @param camera - The scene capture component which will be considered while converting world to screen point
 	 */
-	FVector WorldToScreenPoint(const FVector& worldPos, USceneCaptureComponent2D* camera) const;
+	FVector WorldToScreenPoint(const FVector& worldPos, CaptureComponent* camera) const;
 
 	/**
 	 * Returns the value for ZDP while 'auto ZDP' is enabled
 	 */
 	float CalculateAutoZdpShearValue(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo, 
 		const FLeiaCameraZdpInfo& zdpInfo, const FTransform& targetCamTransform, float interviewDistance, 
-		USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB)const;
+		CaptureComponent * camA, CaptureComponent * camB)const;
 
 	/** Returns the value for horizontal relative position of the cameras */
-	float UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled = true) const;
+	float UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled = true, FMatrix MainCameraTransform = FMatrix::Identity) const;
 
 	/**
 	 * Sets all common ZDP material params by using a MaterialParameterCollectionInstance
 	 */
-	void SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB, const FTransform& targetCamTransform);
+	void SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, CaptureComponent* camA, CaptureComponent* camB, const FTransform& targetCamTransform);
 
 	/**
 	 * Sets all Interlacing material params by using a MaterialParameterCollectionInstance
 	 */
 	 void SetInterlaceMaterialParams(EScreenOrientation::Type orientation);
+
+
+
+	 void GetInterlaceParams(EScreenOrientation::Type orientation, InterlaceParams & interlaceParams);
+
+	 void GetViewSharpeningParams(const FDisplayConfig& config, SharpenParams& sharpenShaderParams);
+
 
 
 	 /**

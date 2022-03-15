@@ -1,0 +1,117 @@
+#pragma once
+
+#include "/Engine/Public/Platform.ush"
+
+#define MaterialFloat2 half2
+
+struct InputVS
+{
+    float4 Position : ATTRIBUTE0;
+    float2 UV       : ATTRIBUTE1;
+};
+
+struct OutputVS
+{
+    float4 Position : SV_POSITION;
+    float4 UV       : TEXCOORD0;
+};
+
+struct OutputPS
+{
+    float4 Color : SV_Target0;
+};
+
+struct FScreenVertexOutput
+{
+#if METAL_PROFILE || COMPILER_GLSL_ES3_1
+	noperspective float2 UV : TEXCOORD0;
+#else
+	noperspective MaterialFloat2 UV : TEXCOORD0;
+#endif
+	float4 Position : SV_POSITION;
+};
+
+Texture2D    texture_0;
+SamplerState texture_0Sampler;
+
+float  gamma;
+float  sharpeningCenter;
+//float4 sharpeningSize;
+//float4 sharpeningX;
+//float4 sharpeningY;
+float4 textureInvSize;
+float4 sharpeningValues[18];
+float sharpeningValueCount;
+
+float3 GammaToLinear(float3 col)
+{
+    return pow(col, gamma);
+}
+
+float3 LinearToGamma(float3 col)
+{
+    return pow(col, 1.0 / gamma); // todo: pass-in invGamma instead of computing per-pixel.
+}
+
+float4 Texture2DSample(Texture2D Tex, SamplerState Sampler, float2 UV)
+{
+	return Tex.Sample(Sampler, UV);
+}
+
+void MainPS(FScreenVertexOutput Input, out float4 result : SV_Target0)
+{
+    /*
+    // Uncomment to do a passthrough.
+    result = Texture2DSample(texture_0, texture_0Sampler, Input.UV);
+    return;
+    */
+
+    // New sharpening shader.
+
+    float4 final_color = float4(0, 0, 0, 1);
+    final_color.rgb = sharpeningCenter * GammaToLinear(Texture2DSample(texture_0, texture_0Sampler, Input.UV).rgb);
+
+    for (int index = 0; index < sharpeningValueCount; index++)
+    {
+        float2 uv = Input.UV + sharpeningValues[index].xy * textureInvSize.xy;
+        final_color.rgb -= sharpeningValues[index].z * GammaToLinear(Texture2DSample(texture_0, texture_0Sampler, uv).rgb);
+    }
+
+    final_color.rgb = clamp(final_color.rgb, 0.0, 1.0);
+    final_color.rgb = LinearToGamma(final_color.rgb);
+    result = final_color;
+
+    /*
+
+    Old sharpening shader:
+
+    float4 final_color = Texture2DSample(texture_0, texture_0Sampler, Input.UV);
+    float3 fCol = sharpeningCenter * GammaToLinear(final_color.rgb);
+    const int maxItrsX = int(sharpeningSize.x);
+    const int maxItrsY = int(sharpeningSize.y);
+
+    for (int j = 0; j < maxItrsX; ++j)
+    {
+        float2 uv_offsetA = Input.UV + float2(( j + 1) * textureInvSize.x, 0);
+        float2 uv_offsetB = Input.UV + float2((-j - 1) * textureInvSize.x, 0);
+        float3 valA = GammaToLinear(Texture2DSample(texture_0, texture_0Sampler, uv_offsetA).rgb);
+        float3 valB = GammaToLinear(Texture2DSample(texture_0, texture_0Sampler, uv_offsetB).rgb);
+        fCol -= sharpeningX[j] * valA;
+        fCol -= sharpeningX[j] * valB;
+    }
+
+    for (int k = 0; k < maxItrsY; ++k)
+    {
+        float2 uv_offsetA = Input.UV + float2(0, ( k + 1) * textureInvSize.y);
+        float2 uv_offsetB = Input.UV + float2(0, (-k - 1) * textureInvSize.y);
+        float3 valA = GammaToLinear(Texture2DSample(texture_0, texture_0Sampler, uv_offsetA).rgb);
+        float3 valB = GammaToLinear(Texture2DSample(texture_0, texture_0Sampler, uv_offsetB).rgb);
+        fCol -= sharpeningY[k] * valA;
+        fCol -= sharpeningY[k] * valB;
+    }
+
+    fCol = clamp(fCol, 0.0, 1.0);
+    fCol = LinearToGamma(fCol);
+    result = float4(fCol, 1.0f);
+    */
+}

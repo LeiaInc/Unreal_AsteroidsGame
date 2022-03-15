@@ -21,14 +21,46 @@ ULeiaCameraComponent::ULeiaCameraComponent()
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 }
 
+void ULeiaCameraComponent::SetDeviceOverride()
+{
+	EViewOverrideMode overrideMode = EViewOverrideMode::LumePad;
+	switch (ViewMode)
+	{
+	case EViewMode::LumePad:
+		overrideMode = EViewOverrideMode::LumePad;
+		break;
+	case EViewMode::Windows_12p5_8V:
+		overrideMode = EViewOverrideMode::Windows_12p5_8V;
+		break;
+	case EViewMode::AndroidPegasus_12p5_8V:
+		overrideMode = EViewOverrideMode::AndroidPegasus_12p5_8V;
+		break;
+	case EViewMode::AndroidPegasus_12p3_8V:
+		overrideMode = EViewOverrideMode::AndroidPegasus_12p3_8V;
+		break;
+	case EViewMode::Windows_15p6_12V:
+		overrideMode = EViewOverrideMode::Windows_15p6_12V;
+		break;
+	case EViewMode::Windows_15p6_13V:
+		overrideMode = EViewOverrideMode::Windows_15p6_13V;
+		break;
+	case EViewMode::None:
+		overrideMode = EViewOverrideMode::None;
+		break;
+	default:
+		overrideMode = EViewOverrideMode::LumePad;
+		break;
+	}
+	Device->SetOverride(overrideMode);
+}
 void ULeiaCameraComponent::OnScreenOrientationChanged(EScreenOrientation::Type type)
 {
 	CurrentScreenOrientation = type;
 
 	if (type == EScreenOrientation::Portrait || type == EScreenOrientation::PortraitUpsideDown)
 	{
-		FDisplayConfig displayConfig = Device->GetDisplayConfig();
-		SetACTCoEfficents(displayConfig.actCoefficients[0], displayConfig.actCoefficients[1]);
+		//FDisplayConfig displayConfig = Device->GetDisplayConfig();
+		//SetACTCoEfficents(displayConfig.actCoefficients[0], displayConfig.actCoefficients[1]);
 
 		FLeiaCameraConstructionInfo constructionInfo;
 		constructionInfo.GridWidth = ConstructionInfo.GridWidth;
@@ -39,8 +71,8 @@ void ULeiaCameraComponent::OnScreenOrientationChanged(EScreenOrientation::Type t
 	}
 	else if (type == EScreenOrientation::LandscapeLeft || type == EScreenOrientation::LandscapeRight || type == EScreenOrientation::Unknown)
 	{
-		FDisplayConfig displayConfig = Device->GetDisplayConfig();
-		SetACTCoEfficents(displayConfig.actCoefficients[2], displayConfig.actCoefficients[3]);
+		//FDisplayConfig displayConfig = Device->GetDisplayConfig();
+		//SetACTCoEfficents(displayConfig.actCoefficients[2], displayConfig.actCoefficients[3]);
 		CreateCameraGrid(ConstructionInfo);
 	}
 
@@ -52,12 +84,14 @@ void ULeiaCameraComponent::OnScreenOrientationChanged(EScreenOrientation::Type t
 		CreateCameraGrid(ConstructionInfo);
 	}
 
+#if !LEIA_STEREO_PATH
 	for (int32 camIndex = 0; camIndex < ConstructionInfo.GridWidth; camIndex++)
 	{
 		FString paramName = "CamInput_";
 		paramName.AppendInt(camIndex);
-		MatInstanceDynamicViewInterlacing->SetTextureParameterValue(*paramName, Cameras[camIndex]->TextureTarget);
+		MatInstanceDynamicViewInterlacing->SetTextureParameterValue(*paramName, ((CaptureComponent*)Cameras[camIndex])->TextureTarget);
 	}
+#endif
 
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), "sg.resolutionquality 100.0");
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), "r.MobileContentScaleFactor 4.0");
@@ -107,9 +141,7 @@ void ULeiaCameraComponent::BeginPlay()
 			}
 		}
 	}
-#if WITH_EDITOR
-	Device->SetOverride((ViewMode == EViewMode::FourView) ? EViewOverrideMode::FourView : EViewOverrideMode::EightView);
-#endif
+	SetDeviceOverride();
 
 	if(TargetCamera != nullptr)
 	{
@@ -136,6 +168,7 @@ void ULeiaCameraComponent::BeginPlay()
 
 	OnScreenOrientationChanged(UBlueprintPlatformLibrary::GetDeviceOrientation());
 
+#if !LEIA_STEREO_PATH
 	if (TargetCamera != nullptr)
 	{
 		TargetCamera->PostProcessSettings.AddBlendable(MatInstanceDynamicViewInterlacing, 1.0f);
@@ -146,17 +179,18 @@ void ULeiaCameraComponent::BeginPlay()
 	{
 		if (MatInstancesDynamicZDP.Num() == Cameras.Num() && MatInstancesDynamicZDP[camIndex] != nullptr)
 		{
-			Cameras[camIndex]->PostProcessSettings.AddBlendable(MatInstancesDynamicZDP[camIndex], 1.0f);
+			((CaptureComponent*)Cameras[camIndex])->PostProcessSettings.AddBlendable(MatInstancesDynamicZDP[camIndex], 1.0f);
 		}
 		else
 		{
 			UMaterialInstanceDynamic* const zdpMatInst = UMaterialInstanceDynamic::Create(RenderingInfo.PostProcessMaterialZDP, this);
 			MatInstancesDynamicZDP.Add(zdpMatInst);
-			Cameras[camIndex]->PostProcessSettings.AddBlendable(zdpMatInst, 1.0f);
+			((CaptureComponent*)Cameras[camIndex])->PostProcessSettings.AddBlendable(zdpMatInst, 1.0f);
 		}
 
-		Cameras[camIndex]->PostProcessSettings.AddBlendable(MatInstanceDynamicPositiveDOF, 1.0f);
+		((CaptureComponent*)Cameras[camIndex])->PostProcessSettings.AddBlendable(MatInstanceDynamicPositiveDOF, 1.0f);
 	}
+#endif
 
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), "sg.resolutionquality 100.0");
 	UKismetSystemLibrary::ExecuteConsoleCommand(GetWorld(), "r.MobileContentScaleFactor 4.0");
@@ -170,9 +204,7 @@ void ULeiaCameraComponent::BeginPlay()
 void ULeiaCameraComponent::OnRegister()
 {
 	Super::OnRegister();
-#if WITH_EDITOR
-	Device->SetOverride((ViewMode == EViewMode::FourView) ? EViewOverrideMode::FourView : EViewOverrideMode::EightView);
-#endif
+	SetDeviceOverride();
 	SetConstructionInfo(ConstructionInfo);
 
 	if (Cameras.Num() == 0)
@@ -192,6 +224,9 @@ void ULeiaCameraComponent::DestroyComponent(bool bPromoteChildren /*= false*/)
 	Super::DestroyComponent(bPromoteChildren);
 }
 
+
+
+
 // Called every frame
 void ULeiaCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
@@ -209,13 +244,14 @@ void ULeiaCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 			for (int wIndex = 0; wIndex < ConstructionInfo.GridWidth; wIndex++)
 			{
 				Cameras[wIndex]->SetRelativeLocation({ 0.0f, UpdateViews(wIndex, RenderingInfo, ConstructionInfo), 0.0f });
-
-				int32 blendableCount = Cameras[wIndex]->PostProcessSettings.WeightedBlendables.Array.Num();
+#if !LEIA_STEREO_PATH
+				int32 blendableCount = ((CaptureComponent*)Cameras[wIndex])->PostProcessSettings.WeightedBlendables.Array.Num();
 				for (int32 blendableIndex = 0; blendableIndex < blendableCount; blendableIndex++)
 				{
-					Cameras[wIndex]->PostProcessSettings.WeightedBlendables.Array[blendableIndex].Weight = 1.0f;
+					((CaptureComponent*)Cameras[wIndex])->PostProcessSettings.WeightedBlendables.Array[blendableIndex].Weight = 1.0f;
 				}
-				SetPostProcessingValuesFromTargetCamera(Cameras[wIndex], TargetCamera);
+				SetPostProcessingValuesFromTargetCamera((CaptureComponent *)Cameras[wIndex], TargetCamera);
+#endif
 			}
 		}
 
@@ -223,8 +259,8 @@ void ULeiaCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 
 		if (MatInstanceDynamicPositiveDOF != nullptr && MatInstancesDynamicZDP.Num() > 0 && Cameras.Num() > 2)
 		{
-			USceneCaptureComponent2D* const camA = Cameras[0];
-			USceneCaptureComponent2D* const camB = Cameras[1];
+			CaptureComponent* const camA = Cast<CaptureComponent>(Cameras[0]);
+			CaptureComponent* const camB = Cast<CaptureComponent>(Cameras[1]);
 
 			const float interviewDistance = GetInterviewDistanceUsingLeiaCamera(camA->GetComponentLocation(), camB->GetComponentLocation());
 
@@ -252,12 +288,15 @@ void ULeiaCameraComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 			for (int index = 0; index < Cameras.Num(); index++)
 			{
 				Cameras[index]->SetRelativeLocation({ 0.0f, RenderingInfo.Baseline * (index - wOffset), 0.0f });
-				int32 blendableCount = Cameras[index]->PostProcessSettings.WeightedBlendables.Array.Num();
+
+#if !LEIA_STEREO_PATH
+				int32 blendableCount = ((CaptureComponent*)Cameras[index])->PostProcessSettings.WeightedBlendables.Array.Num();
 				for (int32 blendableIndex = 0; blendableIndex < blendableCount; blendableIndex++)
 				{
-					Cameras[index]->PostProcessSettings.WeightedBlendables.Array[blendableIndex].Weight = 0.0f;
+					((CaptureComponent*)Cameras[index])->PostProcessSettings.WeightedBlendables.Array[blendableIndex].Weight = 0.0f;
 				}
-				SetPostProcessingValuesFromTargetCamera(Cameras[index], TargetCamera);
+				SetPostProcessingValuesFromTargetCamera((CaptureComponent*)Cameras[index], TargetCamera);
+#endif
 			}
 			RefreshCameraGrid();
 		}
@@ -299,9 +338,11 @@ void ULeiaCameraComponent::RefreshCameraGrid()
 	{
 		for (int wIndex = 0; wIndex < ConstructionInfo.GridWidth; wIndex++)
 		{
-			USceneCaptureComponent2D* const camComponent = Cameras[wIndex];
+			CaptureComponent* const camComponent = (CaptureComponent*)Cameras[wIndex];
 			camComponent->CustomProjectionMatrix = CalculateProjectionMatrix(ConstructionInfo, RenderingInfo, camComponent->GetRelativeLocation());
+#if !LEIA_STEREO_PATH
 			camComponent->TextureTarget->UpdateResourceImmediate();
+#endif
 			camComponent->UpdateComponentToWorld();
 		}
 	}
@@ -404,7 +445,9 @@ void ULeiaCameraComponent::DestroyCamerasAndReleaseRenderTargets()
 		{
 			if (Cameras[cameraIndex] && !Cameras[cameraIndex]->IsPendingKillOrUnreachable())
 			{
-				UKismetRenderingLibrary::ReleaseRenderTarget2D(Cameras[cameraIndex]->TextureTarget);
+#if !LEIA_STEREO_PATH
+				UKismetRenderingLibrary::ReleaseRenderTarget2D(((CaptureComponent*)Cameras[cameraIndex])->TextureTarget);
+#endif
 				Cameras[cameraIndex]->DestroyComponent();
 			}
 		}
@@ -418,7 +461,7 @@ void ULeiaCameraComponent::PostEditChangeProperty(FPropertyChangedEvent& Propert
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	Device->SetOverride((ViewMode == EViewMode::FourView) ? EViewOverrideMode::FourView : EViewOverrideMode::EightView);
+	SetDeviceOverride();
 	SetConstructionInfo(ConstructionInfo);
 	CreateCameraGrid(ConstructionInfo);
 }

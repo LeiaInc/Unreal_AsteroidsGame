@@ -4,8 +4,13 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "SceneViewExtension.h"
 #include "LeiaCameraBase.h"
+#include "LeiaBlinkWrapper.h"
 #include "LeiaCameraPawn.generated.h"
+
+
+
 
 UCLASS()
 class LEIACAMERA_API ALeiaCameraPawn : public APawn, public LeiaCameraBase
@@ -15,6 +20,36 @@ class LEIACAMERA_API ALeiaCameraPawn : public APawn, public LeiaCameraBase
 public:
 	// Sets default values for this pawn's properties
 	ALeiaCameraPawn();
+
+	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	float displayCamCenterX = 0.0f;
+	float displayCamCenterY = 0.0f;
+	float displayConvergence = 0.0f;
+
+	bool useACT = true;
+	bool isFaceTracking = true;
+	bool isViewPeeling = true;
+
+	void ToggleACT();
+	void ToggleFaceTracking();
+	void ToggleViewPeeling();
+
+	void ConvergenceUp();
+	void ConvergenceDown();
+	void BaselineUp();
+	void BaselineDown();
+	void AdjustViewOffsetUp();
+	void AdjustViewOffsetDown();
+	
+	
+	
+	FVector2D CameraShift;
+
+	FVector2D PrevCameraShift;
+
+	LeiaBlinkWrapper blinkClass;
 
 	/** The Actor that contains a CameraComponent or SceneCaptureComponent2D */
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Camera Grid Setup")
@@ -26,6 +61,9 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Camera Grid Setup")
 	FLeiaCameraConstructionInfo ConstructionInfo;
+
+	UPROPERTY(EditAnywhere, Category = "Camera Grid Setup")
+	EViewMode DeviceConfigOverrideMode = EViewMode::Windows_15p6_12V;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Grid Setup")
 	FLeiaCameraRenderingInfo RenderingInfo;
@@ -45,10 +83,15 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
 	UMaterialParameterCollection* ViewSharpeningeMatParamCollection = nullptr;
-
 	/** Array of cameras in the generated grid */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<class ASceneCapture2D*> Cameras;
+	TArray<class AActor*> Cameras;
+
+	UFUNCTION(BlueprintCallable)
+	FVector GetMousePositionForEmulatingFaceTracking();
+
+    UFUNCTION(BlueprintCallable)
+    float getN(float x, float y, float z, float x0, float y0);
 
 	/** Can be called after modification of RenderingInfo to apply changes */
 	UFUNCTION(BlueprintCallable)
@@ -84,19 +127,23 @@ public:
 	UFUNCTION(BlueprintCallable)
 	float GetCurrentShearValue() const;
 
+#define BUFFERED_PARAMS 20
+
+	IRendererModule* RendererModule;
+	InterlaceParams interlaceShaderParams_GameThread;
+	InterlaceParams interlaceShaderParams_RenderThread[BUFFERED_PARAMS];
+	SharpenParams sharpenShaderParams;
+
+	int gameThreadParams = 0;
+	int renderThreadParams = 0;
 protected:
 
 	UPROPERTY(VisibleDefaultsOnly)
 	USceneComponent* SceneRoot = nullptr;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<ASceneCapture2D> CameraObjRef;
 
 	UPROPERTY(EditAnywhere, Category = "Debug Display")
 	bool bDisplayFrustum = true;
-
-	UPROPERTY(VisibleAnywhere, Category = "Debug Display")
-	EViewMode ViewMode = EViewMode::FourView;
 
 	const FName PropertiesThatRegenerateGrid = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, ConstructionInfo);
 	const FName PropertiesThatRequireProjectionMatrixRecalculation = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, RenderingInfo);
@@ -119,9 +166,11 @@ protected:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	void Destroyed() override;
+	virtual void Destroyed() override;
 
 	void OnConstruction(const FTransform& Transform) override;
+
+	void SetDeviceOverride();
 
 private:
 

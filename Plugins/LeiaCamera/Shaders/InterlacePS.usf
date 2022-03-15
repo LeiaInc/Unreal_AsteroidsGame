@@ -1,0 +1,171 @@
+#pragma once
+
+#include "/Engine/Public/Platform.ush"
+
+#define MaterialFloat2 half2
+
+struct InputVS
+{
+    float4 Position : ATTRIBUTE0;
+    float2 UV : ATTRIBUTE1;
+};
+
+struct OutputVS
+{
+    float4    Position : SV_POSITION;
+    float4    UV : TEXCOORD0;
+};
+
+struct OutputPS
+{
+    float4 Color : SV_Target0;
+};
+
+struct FScreenVertexOutput
+{
+#if METAL_PROFILE || COMPILER_GLSL_ES3_1
+    noperspective float2 UV : TEXCOORD0;
+#else
+    noperspective MaterialFloat2 UV : TEXCOORD0;
+#endif
+    float4 Position : SV_POSITION;
+};
+
+Texture2D texture_0;
+SamplerState texture_0Sampler;
+float viewsX;
+float viewsY;
+float viewResX;
+float viewResY;
+
+                    //                Description                      |                How to parse from TINY* getDisplayConfig
+                    //-------------------------------------------------|----------------------------------------------------------------------------------
+float n;            // non-linear view model                           | ActCoefficientsY[0] / 1000 unless ActCoefficientsY[0] < 1000 then use default)
+float d_over_n;     // n-adjusted BLU-LCD distance                     | ConvergenceDistance * (DotPitchInMm / 3) / ViewBoxSize[0], using s * D)
+float faceX;        // camera x position                               |
+float faceY;        // camera y position                               |
+float faceZ;        // camera z position                               |
+float pixelPitch;   // pixel pitch                                     | DotPitchInMm
+float du;           // horizontal view spacing                         | DotPitchInMm / 3
+float dv;           // vertical view spacing                           | Slant * DotPitchInMm
+float s;            // stretch (BLU relative to LCD)                   | (DotPitchInMm / 3) / ViewBoxSize[0], using s =  ?u/IO
+float cos_theta;    // rotation (BLU relative to LCD)                  |
+float sin_theta;    // rotation (BLU relative to LCD)                  |
+float peelOffset;   // peel offset                                     |
+float No;           // View number at center / normal                  |
+float displayResX;  // full display horizontal resolution              |
+float displayResY;  // full display vertical resolution                |
+
+float periodic_mod(float a, float b) {
+        return a - b * floor(a / b);
+}
+
+float2 periodic_mod(float2 a, float2 b) {
+        return a - b * floor(a / b);
+}
+
+float3 periodic_mod(float3 a, float3 b) {
+        return a - b * floor(a / b);
+}
+
+float4 periodic_mod(float4 a, float4 b) {
+        return a - b * floor(a / b);
+}
+
+float N(float x, float y, float z, float x0, float y0) {
+    float dx     = s*x0 + (cos_theta-1.0)*x0 - sin_theta*y0;
+    float dy     = s*y0 + (cos_theta-1.0)*y0 + sin_theta*x0;
+    float denom  = sqrt(z*z + (1.0 - 1.0/(n*n))*((x-x0)*(x-x0) + (y-y0)*(y-y0)));
+    float u      = dx + d_over_n*(x-x0)/denom;
+    float v      = dy + d_over_n*(y-y0)/denom;
+    float result = u/du + v/dv;
+    return No + result;
+}
+
+float4 Texture2DSample(Texture2D Tex, SamplerState Sampler, float2 UV) {
+    return Tex.Sample(Sampler, UV);
+}
+
+
+float4 sample_view(float2 uv, int view) {
+    float viewScale = (1.0 / viewsX);
+    uv.x = (uv.x * viewScale) + (float(view) * viewScale);
+
+    return Texture2DSample(texture_0, texture_0Sampler, uv);
+}
+
+float4 sample_view(float2 uv, float view) {
+    float black_point    = 0.0;
+    float white_point    = 1.0;
+    float view1          = fmod(floor(view), viewsX);
+    float view2          = fmod(floor(view1 + 1.1), viewsX);
+    float linear_mix     = view - view1;
+    float non_linear_mix = smoothstep(black_point, white_point, linear_mix);
+    float4 a             = sample_view(uv, int(view1));
+    float4 b             = sample_view(uv, int(view2));
+    return lerp(a, b, non_linear_mix);
+}
+
+float3 calculateViewVector(float2 uv) {
+    float3 views;
+    views.r = (3.0f * displayResX * uv.x)+ (displayResY * (1.0 - uv.y)) + (0.000000);
+    views.g = (3.0f * displayResX * uv.x)+ (displayResY * (1.0 - uv.y)) + (1.000000);
+    views.b = (3.0f * displayResX * uv.x)+ (displayResY * (1.0 - uv.y)) + (2.000000);
+    return views;
+}
+
+float3 calculateViewIndices(float2 normalized_display_coord) {
+
+    const int perPixelCorrection = 1; // always enabled
+
+    float3 viewVector = calculateViewVector(normalized_display_coord);
+
+    float viewCount = viewsX * viewsY;
+    // correct some float precision issues with this offset
+    float correction = - 1.0 / max(2.0, viewCount);
+
+    // from https://github.com/leaiss/orbital_player/blob/cca1adc694b8bbbe8d25728e749bf305a4b67bc1/orbitalplayer/shaders/interlace_shader.glsl#L289
+    float float_precision_offset = correction;
+    float user_offset =  (viewCount-1.0)*0.5 - No;
+
+    if (perPixelCorrection==1) {
+        float_precision_offset += 0.5;
+
+        float x0 = (normalized_display_coord.x-0.5)*displayResX*pixelPitch;
+        float y0 = (normalized_display_coord.y-0.5)*displayResY*pixelPitch;
+
+        user_offset += N(faceX, faceY, faceZ, 0.0, 0.0) - N(faceX, faceY, faceZ, x0, y0) - peelOffset;
+    }
+    else {
+         float_precision_offset += 0.5;
+        user_offset -= peelOffset;
+    }
+
+    // last row / row "3" of viewMatrix is ith view index,
+    float3 views = periodic_mod(viewVector  + user_offset + float_precision_offset, viewCount);
+    return views;
+}
+
+void MainPS(FScreenVertexOutput Input, out float4 result : SV_Target0)
+{
+    float2 texture_offset = 0.5f / float2(viewResX * viewsX, viewResY);
+    float2 normalized_display_coord = Input.UV - texture_offset;
+
+    float3 viewIndices = calculateViewIndices(normalized_display_coord);
+
+    float4 interlaced_fragment;
+    interlaced_fragment[0] = sample_view(normalized_display_coord, viewIndices[0]).r;
+    interlaced_fragment[1] = sample_view(normalized_display_coord, viewIndices[1]).g;
+    interlaced_fragment[2] = sample_view(normalized_display_coord, viewIndices[2]).b;
+    interlaced_fragment[3] = 1.0;
+
+    //interlaced_fragment = float4(Input.UV.x, Input.UV.y,0,1);                                         // Test: Input UVs are correct
+    //interlaced_fragment = Texture2DSample(texture_0, texture_0Sampler, Input.UV);                     // Test: All views are present in single input texture
+    //interlaced_fragment = sample_view(Input.UV, int(0));                                              // Test: Sample-per-view function works (integral)
+    //interlaced_fragment = sample_view(Input.UV, float(0.5));                                          // Test: Sample-per-view function works (blended)
+    //interlaced_fragment = float4(viewIndices[0]/11.0f,viewIndices[1]/11.0f,viewIndices[2]/11.0f,0);   // Test: View indices calculation
+    
+    result = interlaced_fragment;
+    //debug intermediate numViewsWide texture
+    //result = texture_0.Sample(texture_0Sampler, Input.UV);
+}

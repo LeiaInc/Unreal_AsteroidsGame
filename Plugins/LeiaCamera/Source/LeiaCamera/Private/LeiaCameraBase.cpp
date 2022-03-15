@@ -16,6 +16,7 @@
 #include "Camera/CameraComponent.h"
 #include "Engine/SceneCapture2D.h"
 #include "ILeiaDevice.h"
+#include "WindowsLeiaDevice.h"
 
 struct CameraCalculatedParams
 {
@@ -23,15 +24,110 @@ struct CameraCalculatedParams
 	float ScreenHalfWidth;
 	float EmissionRescalingFactor = 1.0f;
 
-	CameraCalculatedParams(FLeiaCameraRenderingInfo renderingInfo, const FDisplayConfig::OrientationConfig& display, bool emissionRescalingEnabled = true)
+	CameraCalculatedParams(FLeiaCameraRenderingInfo renderingInfo, const FDisplayConfig& config, EScreenOrientation::Type orientation, bool emissionRescalingEnabled = true)
 	{
+        const FDisplayConfig::OrientationConfig orientationConfig = config.ToScreenOrientationConfig(orientation);
+
 		ScreenHalfHeight = renderingInfo.ConvergenceDistance * FMath::Tan(renderingInfo.FieldOfView);
-		ScreenHalfWidth = (display.panelResolution[0] / display.panelResolution[1]) * ScreenHalfHeight;
-		float f = (display.viewResolution[1] / 1.0f) / 2.0f / FMath::Tan(renderingInfo.FieldOfView);
+		ScreenHalfWidth = (orientationConfig.panelResolution[0] / orientationConfig.panelResolution[1]) * ScreenHalfHeight;
+		float f = (orientationConfig.viewResolution[1] / 1.0f) / 2.0f / FMath::Tan(renderingInfo.FieldOfView);
 		if (emissionRescalingEnabled)
 		{
-			EmissionRescalingFactor = display.systemDisparityPixels * renderingInfo.Baseline * renderingInfo.ConvergenceDistance / f;
+			EmissionRescalingFactor = config.systemDisparityPixels * renderingInfo.Baseline * renderingInfo.ConvergenceDistance / f;
 		}
+	}
+
+	typedef FMatrix Matrix4x4;
+	typedef FVector Vector3;
+
+	static FMatrix GetConvergedProjectionMatrixForPosition(FMatrix CameraTransform, float _far, float _near, float viewWidth, float viewHeight, float fieldOfView,/*Camera Camera,*/ FVector convergencePoint)
+	{
+		Matrix4x4 m = Matrix4x4::Identity;
+
+		Vector3 cameraToConvergencePoint = convergencePoint - CameraTransform.GetColumn(3);
+
+		//float far = Camera.farClipPlane;
+		//float near = Camera.nearClipPlane;
+
+		// posX and posY are the camera-axis-aligned translations off of "root camera" position
+		float posX = -1 * Vector3::DotProduct(cameraToConvergencePoint, CameraTransform.GetColumn(0));
+		float posY = -1 * Vector3::DotProduct(cameraToConvergencePoint, CameraTransform.GetColumn(1));
+
+		// this is really posZ. it is better if posZ is positive-signed
+		float ConvergenceDistance = FMath::Max(Vector3::DotProduct(cameraToConvergencePoint, CameraTransform.GetColumn(2)), 1E-5f);
+#if 0 //todo
+		if (Camera.orthographic)
+		{
+			// calculate the halfSizeX and halfSizeY values that we need for orthographic cameras
+
+			float halfSizeX = Camera.orthographicSize * GetViewportAspectFor(Camera);
+			float halfSizeY = Camera.orthographicSize;
+
+			// orthographic
+
+			// row 0
+			m[0, 0] = 1.0f / halfSizeX;
+			m[0, 1] = 0.0f;
+			m[0, 2] = -posX / (halfSizeX * ConvergenceDistance);
+			m[0, 3] = 0.0f;
+
+			// row 1
+			m[1, 0] = 0.0f;
+			m[1, 1] = 1.0f / halfSizeY;
+			m[1, 2] = -posY / (halfSizeY * ConvergenceDistance);
+			m[1, 3] = 0.0f;
+
+			// row 2
+			m[2, 0] = 0.0f;
+			m[2, 1] = 0.0f;
+			m[2, 2] = -2.0f / (_far - _near);
+			m[2, 3] = -(_far + _near) / (_far - _near);
+
+			// row 3
+			m[3, 0] = 0.0f;
+			m[3, 1] = 0.0f;
+			m[3, 2] = 0.0f;
+			m[3, 3] = 1.0f;
+		}
+		else
+#endif
+		{
+			// calculate the halfSizeX and halfSizeY values for perspective cam that we would have gotten if we had used new CameraCalculatedParams.
+			// we don't need "f" (disparity per camera vertical pixel count) or EmissionRescalingFactor
+			const float minAspect = 1E-5f;
+			auto aspectRatio = static_cast<float>(viewHeight) / viewWidth;
+			
+			float aspect = FMath::Max(aspectRatio, minAspect);
+			float halfSizeX = ConvergenceDistance * FMath::Tan(fieldOfView * PI / 360.0f);
+			float halfSizeY =  aspect* halfSizeX;
+
+
+			m.M[0][0] = ConvergenceDistance / halfSizeX;
+			m.M[1][0] = 0.0f;
+			m.M[2][0] = -posX / halfSizeX;
+			m.M[3][0] = 0.0f;
+
+			m.M[0][1] = 0.0f;
+			m.M[1][1] = ConvergenceDistance / halfSizeY;
+			m.M[2][1] = -posY / halfSizeY;
+			m.M[3][1] = 0.0f;
+
+			m.M[0][2] = 0.0f;
+			m.M[1][2] = 0.0f;
+			m.M[2][2] = -1  + (_far + _near) / (_far - _near);
+			m.M[3][2] =  _far * _near / (_far - _near);
+
+			m.M[0][3] = 0.0f;
+			m.M[1][3] = 0.0f;
+			m.M[2][3] = 1.0f;
+			m.M[3][3] = 0.0f;
+
+			if (m.M[0][0] == 0.01f)
+			{
+				printf("test");
+			}
+		}
+		return m;
 	}
 };
 
@@ -39,7 +135,7 @@ LeiaCameraBase::LeiaCameraBase()
 {
 #if PLATFORM_ANDROID
 	Device = new AndroidLeiaDevice();
-#elif PLATFORM_WINDOWS && !WITH_EDITOR
+#elif LEIA_USE_SERVICE
 	Device = new WindowsLeiaDevice();
 #else
 	Device = new AbstractLeiaDevice();
@@ -255,8 +351,13 @@ FString LeiaCameraBase::GetCameraNameFromGridIndex(const FLeiaCameraConstruction
 	return "SceneCaptureCamera_" + FString::FromInt(index);
 }
 
-FMatrix LeiaCameraBase::CalculateProjectionMatrix(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo, const FVector& localCamPos) const
+FMatrix LeiaCameraBase::CalculateProjectionMatrix(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo, const FVector& localCamPos, FMatrix MainCameraTransform) const
 {
+	//FVector convergencePoint = MainCameraTransform.GetColumn(3) + MainCameraTransform.GetColumn(2) * renderingInfo.ConvergenceDistance;
+	//auto retMat = CameraCalculatedParams::GetConvergedProjectionMatrixForPosition(MainCameraTransform, renderingInfo.FarClipPlane, renderingInfo.NearClipPlane, constructionInfo.RenderTextureResolutionWidth, constructionInfo.RenderTextureResolutionHeight, renderingInfo.FieldOfView, convergencePoint);
+
+	//return retMat;
+#if 1
 	float aspectRatio = 0.0f;
 
 	if (CurrentScreenOrientation == EScreenOrientation::LandscapeLeft || CurrentScreenOrientation == EScreenOrientation::LandscapeRight || CurrentScreenOrientation == EScreenOrientation::Unknown)
@@ -301,7 +402,9 @@ FMatrix LeiaCameraBase::CalculateProjectionMatrix(const FLeiaCameraConstructionI
 	projectionMatrix.M[2][0] = shearY;
 	projectionMatrix.M[2][1] = shearZ;
 
+
 	return projectionMatrix;
+#endif
 }
 
 void LeiaCameraBase::SetProperPlaneOrientation(const FVector& forward, const FVector& right, FPlane& plane) const
@@ -544,7 +647,7 @@ FVector LeiaCameraBase::GetCameraFrustumNearCenter(UWorld* world, const FTransfo
 	return result.ImpactPoint;
 }
 
-FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, USceneCaptureComponent2D* camera) const
+FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, CaptureComponent* camera) const
 {
 	FMatrix ViewRotationMatrix = FInverseRotationMatrix(camera->GetComponentRotation()) * FMatrix(
 		FPlane(0, 0, 1, 0),
@@ -563,7 +666,7 @@ FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, USceneCaptur
 
 float LeiaCameraBase::CalculateAutoZdpShearValue(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo,
 	const FLeiaCameraZdpInfo& zdpInfo, const FTransform& targetCamTransform, float interviewDistance,
-	USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB) const
+	CaptureComponent* camA , CaptureComponent* camB) const
 {
 
 	float aspectRatio = 0.0f;
@@ -604,16 +707,17 @@ float LeiaCameraBase::CalculateAutoZdpShearValue(const FLeiaCameraConstructionIn
 	return shearStrength;
 }
 
-float LeiaCameraBase::UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled/* = true*/) const
+float LeiaCameraBase::UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled /*= true*/, FMatrix MainCameraTransform /*= FMatrix::Identity*/) const
 {
-	CameraCalculatedParams calculated = CameraCalculatedParams(renderingInfo, Device->GetDisplayConfig().ToScreenOrientationConfig(CurrentScreenOrientation), emissionRescalingEnabled);
+	CameraCalculatedParams calculated = CameraCalculatedParams(renderingInfo, Device->GetDisplayConfig(), CurrentScreenOrientation, emissionRescalingEnabled);
 	float wOffset;
 	CalculateGridOffset(constructionInfo, wOffset);
 	float posx = calculated.EmissionRescalingFactor * (renderingInfo.Baseline * (index - wOffset));
+
 	return posx;
 }
 
-void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB, const FTransform& targetCamTransform)
+void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, CaptureComponent* camA, CaptureComponent* camB, const FTransform& targetCamTransform)
 {
 	CommonMatParamCollectionInst->SetScalarParameterValue("ConvergenceDistance", renderingInfo.ConvergenceDistance);
 	CommonMatParamCollectionInst->SetScalarParameterValue("FarPlaneDistance", GetFarPlaneDistance(renderingInfo));
@@ -629,35 +733,132 @@ void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& 
 
 void LeiaCameraBase::SetInterlaceMaterialParams(EScreenOrientation::Type orientation)
 {
-	FDisplayConfig config = Device->GetDisplayConfig();
+	InterlaceParams interlaceShaderParams;
+	GetInterlaceParams(orientation, interlaceShaderParams);
 
-	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsX", static_cast<float>(config.numViews[0]));
-	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsY", static_cast<float>(config.numViews[1]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("viewRes",
-		FLinearColor(static_cast<float>(config.viewResolution[0]),
-			static_cast<float>(config.viewResolution[1]), 0.0f, 0.0f));
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsX",      interlaceShaderParams.viewsX);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsY",      interlaceShaderParams.viewsY);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewResX",    interlaceShaderParams.viewRes.R);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewResY",    interlaceShaderParams.viewRes.G);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("n",           interlaceShaderParams.n);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("d_over_n",    interlaceShaderParams.d_over_n);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("faceX",       interlaceShaderParams.faceX);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("faceY",       interlaceShaderParams.faceY);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("faceZ",       interlaceShaderParams.faceZ);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("pixelPitch",  interlaceShaderParams.pixelPitch);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("du",          interlaceShaderParams.du);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("dv",          interlaceShaderParams.dv);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("s",           interlaceShaderParams.s);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("cos_theta",   interlaceShaderParams.cos_theta);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("sin_theta",   interlaceShaderParams.sin_theta);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("peelOffset",  interlaceShaderParams.peelOffset);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("No",          interlaceShaderParams.No);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("displayResX", interlaceShaderParams.displayResX);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("displayResY", interlaceShaderParams.displayResY);
+}
 
-	FDisplayConfig::OrientationConfig orientationConfig = Device->GetDisplayConfig().ToScreenOrientationConfig(orientation);
+void LeiaCameraBase::GetInterlaceParams(EScreenOrientation::Type orientation, InterlaceParams& interlaceParams)
+{
+	const FDisplayConfig config = Device->GetDisplayConfig();
+	const FDisplayConfig::OrientationConfig orientationConfig = Device->GetDisplayConfig().ToScreenOrientationConfig(orientation);
 
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceVector", FLinearColor(orientationConfig.interlacingVector));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatA", FLinearColor(orientationConfig.interlacingMatrix.M[0][0], orientationConfig.interlacingMatrix.M[0][1], orientationConfig.interlacingMatrix.M[0][2], orientationConfig.interlacingMatrix.M[0][3]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatB", FLinearColor(orientationConfig.interlacingMatrix.M[1][0], orientationConfig.interlacingMatrix.M[1][1], orientationConfig.interlacingMatrix.M[1][2], orientationConfig.interlacingMatrix.M[1][3]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatC", FLinearColor(orientationConfig.interlacingMatrix.M[2][0], orientationConfig.interlacingMatrix.M[2][1], orientationConfig.interlacingMatrix.M[2][2], orientationConfig.interlacingMatrix.M[2][3]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatD", FLinearColor(static_cast<int>(orientationConfig.interlacingMatrix.M[3][0]), orientationConfig.interlacingMatrix.M[3][1], orientationConfig.interlacingMatrix.M[3][2], orientationConfig.interlacingMatrix.M[3][3]));
+	interlaceParams.viewsX  = static_cast<float>(config.numViews[0]);
+	interlaceParams.viewsY  = static_cast<float>(config.numViews[1]);
+	interlaceParams.viewRes = FLinearColor(static_cast<float>(config.viewResolution[0]), static_cast<float>(config.viewResolution[1]), 0.0f, 0.0f);
 
+	// Compute n (non-linear view model), which is ActCoefficientsY[0] / 1000 unless ActCoefficientsY[0] < 1000 then use default
+    interlaceParams.n = config.n;
+	
+	// Compute d/n (n-adjusted BLU-LCD distance), which is ConvergenceDistance * (DotPitchInMm / 3) / ViewBoxSize[0], using s * D
+    interlaceParams.d_over_n = config.d_over_n;
+	
+	interlaceParams.faceX = 0;				// @Lee: get from pawn/face-tracking
+	interlaceParams.faceY = 0;				// @Lee: get from pawn/face-tracking
+	interlaceParams.faceZ = 0;				// @Lee: get from pawn/face-tracking
+
+    // Get pixel pitch.
+    interlaceParams.pixelPitch = config.dotPitchInMM[0];
+
+	// Compute du(horizontal view spacing), which is DotPitchInMm / 3
+	interlaceParams.du = config.dotPitchInMM[0] / 3.0f;
+	
+	// Compute dv(vertical view spacing), which is Slant* DotPitchInMm
+	interlaceParams.dv = config.p_over_dv * config.dotPitchInMM[0];
+
+	// Compute s "stretch (BLU relative to LCD)" which is (DotPitchInMm / 3) / ViewBoxSize[0], using s = du / IO
+    interlaceParams.s = config.s / (float(config.panelResolution[0]) * config.p_over_du);
+
+	// Compute theta "rotation (BLU relative to LCD)" which is ActCoefficientsY[1] unless ActCoefficientsY[0] < 1000 then use 0
+    const float theta_n = config.theta / (config.panelResolution[1] * 3.0f);
+	interlaceParams.cos_theta = cos(theta_n);
+	interlaceParams.sin_theta = sin(theta_n);
+
+	interlaceParams.peelOffset = 0;				// @Lee: get from pawn->getPeelOffset()
+	interlaceParams.viewPeeling = 1;				// @Lee: get from pawn (default is peeling, will we ever use view sliding?)
+
+	// Compute No "View number at center / normal" which is CenterViewNumber
+	interlaceParams.No = config.centerViewNumber;
+
+	interlaceParams.displayResX = config.panelResolution[0];
+	interlaceParams.displayResY = config.panelResolution[1];
+}
+
+void LeiaCameraBase::GetViewSharpeningParams(const FDisplayConfig& config, SharpenParams& sharpenShaderParams)
+{
+	sharpenShaderParams.gamma            = config.act_gamma;
+	sharpenShaderParams.sharpeningCenter = 1.0f;
+	sharpenShaderParams.sharpeningSize = FLinearColor(config.sharpeningKernelX[0], config.sharpeningKernelY[0], 0, 0);
+	sharpenShaderParams.sharpeningX = FLinearColor(config.sharpeningKernelX[1], config.sharpeningKernelX[2], config.sharpeningKernelX[3], config.sharpeningKernelX[4]);
+	sharpenShaderParams.sharpeningY = FLinearColor(config.sharpeningKernelY[1], config.sharpeningKernelY[2], config.sharpeningKernelY[3], config.sharpeningKernelY[4]);
+	sharpenShaderParams.textureInvSize   = FLinearColor(1.0f / config.panelResolution[0], 1.0f / config.panelResolution[1], 0, 0);
+
+	// Get input ACT coefficients.
+	const float* actCoeffs      = config.sharpeningKernelX;
+    const int    actCoeffsCount = config.sharpeningKernelXSize;
+
+	// Compute view step rates.
+    const int viewStepRateX = (int)config.p_over_du;
+    const int viewStepRateY = (int)config.p_over_dv;
+
+    // Compute normalizer from all act values and beta.
+    float normalizer = 1.0f;
+    for (int i = 0; i < actCoeffsCount; i++)
+        normalizer -= config.act_beta * actCoeffs[i];
+
+    // Compute sharpening center.
+	sharpenShaderParams.sharpeningCenter = 1.0f / normalizer;
+	
+	// Compute normalized sharpening shader values (OfsX, OfsY, Weight)
+	sharpenShaderParams.sharpeningValueCount = 0;
+	for (int i = 1; i <= actCoeffsCount; i++)
+	{
+		const float x0 = floorf(i / viewStepRateX);
+		const float x1 = -x0;
+
+		const float y0 = viewStepRateY * (i % viewStepRateX);
+		const float y1 = -y0;
+
+		const float z = actCoeffs[i - 1] / normalizer;
+
+		// Skip zero weights.
+		if (z == 0.0f)
+			continue;
+
+		// Add two sharpening values.
+		sharpenShaderParams.sharpeningValues[sharpenShaderParams.sharpeningValueCount++] = FLinearColor(x0, y0, z);
+		sharpenShaderParams.sharpeningValues[sharpenShaderParams.sharpeningValueCount++] = FLinearColor(x1, y1, z);
+	}
 }
 
 void LeiaCameraBase::SetViewSharpeningMaterialParams()
 {
-	FDisplayConfig config = Device->GetDisplayConfig();
+	SharpenParams sharpenShaderParams;
+	GetViewSharpeningParams(Device->GetDisplayConfig(), sharpenShaderParams);
 
-	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma", config.gamma);
-	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", 1.0f);
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize", FLinearColor(config.sharpeningKernelX[0], config.sharpeningKernelY[0], 0, 0));
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX",
-		FLinearColor(config.sharpeningKernelX[1], config.sharpeningKernelX[2],
-			config.sharpeningKernelX[3], config.sharpeningKernelX[4]));
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY",
-		FLinearColor(config.sharpeningKernelY[1], config.sharpeningKernelY[2],
-			config.sharpeningKernelY[3], config.sharpeningKernelY[4]));
+	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma",            sharpenShaderParams.gamma);
+	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", sharpenShaderParams.sharpeningCenter);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize",   sharpenShaderParams.sharpeningSize);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX",      sharpenShaderParams.sharpeningX);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY",      sharpenShaderParams.sharpeningY);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("textureInvSize",   sharpenShaderParams.textureInvSize);
 }

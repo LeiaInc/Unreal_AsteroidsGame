@@ -32,6 +32,10 @@ DECLARE_JAVA_METHOD(AndroidThunkJava_AndroidAPI_IsBacklightEnabled);
 
 AndroidLeiaDevice::AndroidLeiaDevice()
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return;
+	}
 #if PLATFORM_ANDROID
 	INIT_JAVA_METHOD(AndroidThunkJava_AndroidAPI_EnableBacklight, "()V");
 	INIT_JAVA_METHOD(AndroidThunkJava_AndroidAPI_EnableBacklightWithDelay, "(I)V");
@@ -49,6 +53,10 @@ AndroidLeiaDevice::~AndroidLeiaDevice()
 
 void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId)
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return;
+	}
 #if PLATFORM_ANDROID
 	JNIEnv* Env = FAndroidApplication::GetJavaEnv(true);
 	if (Env != nullptr)
@@ -67,6 +75,10 @@ void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId)
 
 void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId, int delay)
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return;
+	}
 #if PLATFORM_ANDROID
 	JNIEnv* Env = FAndroidApplication::GetJavaEnv(true);
 	if (Env != nullptr)
@@ -85,6 +97,10 @@ void AndroidLeiaDevice::SetBacklightMode(BacklightMode modeId, int delay)
 
 BacklightMode AndroidLeiaDevice::GetBacklightMode()
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return BacklightMode::MODE_3D;
+	}
 #if PLATFORM_ANDROID
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv(true))
 	{
@@ -97,6 +113,11 @@ BacklightMode AndroidLeiaDevice::GetBacklightMode()
 
 FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return AbstractLeiaDevice::GetDisplayConfig();
+	}
+
 	FString str = "";
 #if PLATFORM_ANDROID
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv(true))
@@ -111,7 +132,11 @@ FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 
 	FDisplayConfig displayConfig;
 
-	if (outStrArray.Num() != 0)
+#if PLATFORM_ANDROID
+    static_assert(false, "Implement below similarly to WindowsLeiaDevice::GetDisplayConfig()");
+#endif
+
+	/*if (outStrArray.Num() != 0)
 	{
 		displayConfig.dotPitchInMM[0] = FCString::Atof(*outStrArray[1]);
 		displayConfig.dotPitchInMM[1] = FCString::Atof(*outStrArray[0]);
@@ -193,7 +218,7 @@ FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 			displayConfig.interlacingMatrixPortrait180.M[index][2] = FCString::Atof(*outStrArray[44 + index * 4 + 2 + 48]);
 			displayConfig.interlacingMatrixPortrait180.M[index][3] = FCString::Atof(*outStrArray[44 + index * 4 + 3 + 48]);
 		}
-	}
+	}*/
 
 	return displayConfig;
 }
