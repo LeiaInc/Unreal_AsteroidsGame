@@ -1,10 +1,15 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "AbstractLeiaDevice.h"
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+#if PLATFORM_WINDOWS && LEIA_USE_SERVICE
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -58,7 +63,7 @@ struct DisplayConfigStruct
 	bool isSlanted;
 };
 
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+#if LEIA_USE_SERVICE
 typedef void (WINAPI* PGNSI)(LPSYSTEM_INFO);
 typedef void(__cdecl* MINT_VOID) (int); // a pointer to a process that takes 1 int arg and returns a void
 typedef bool(__cdecl* MATOMIC_BOOL) (); // a pointer to a process that takes no args and returns a bool
@@ -81,7 +86,7 @@ public:
 	FDisplayConfig GetDisplayConfig() override;
 
 private:
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+#if LEIA_USE_SERVICE
 	HMODULE hmodDisplaySdkCpp;
 	HMODULE hmodDisplayParams;
 	MATOMIC_BOOL fPtrConnected = nullptr;

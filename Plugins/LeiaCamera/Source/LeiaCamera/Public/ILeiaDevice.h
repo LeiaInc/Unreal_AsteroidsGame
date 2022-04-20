@@ -1,10 +1,20 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/ObjectMacros.h"
 #include "Kismet/BlueprintPlatformLibrary.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogLeia, Log, All);
+
+// Moved this define here because it's used in both WindowsLeiaDevice and LeiaCameraBase, and their only common header is this file.
+#define LEIA_USE_SERVICE  (PLATFORM_WINDOWS && !WITH_EDITOR)
 
 struct FDisplayConfig
 {
@@ -13,8 +23,8 @@ struct FDisplayConfig
 	int32 numViews[2] = { 4, 1 };
 	int32 alignmentOffset[2] = { 0, 0 };
 	float actCoefficients[4] = { 0.06f, 0.025f, 0.04f, 0.02f };
-	float sharpeningKernelX[5] = {};
-	float sharpeningKernelY[5] = {};
+	float sharpeningKernelX[10] = {};
+	float sharpeningKernelY[10] = {};
 	int32 viewResolution[2] = { 640, 400 };
 	int32 displaySizeInMm[2] = { 0, 0 };
 	FMatrix interlacingMatrixLandscape = { {1, 0, 0, 0}, {0, 1, 0, 0}, {0, 0, 1, 0}, {640, 0, 0, 0} };
@@ -111,8 +121,9 @@ struct FDisplayConfig
 UENUM(BlueprintType)
 enum class BacklightMode : uint8
 {
-	MODE_3D = 0 UMETA(DisplayName = "3D"),
-	MODE_2D = 1 UMETA(DisplayName = "2D"),
+	//MODE_INVALID = 0 UMETA(DisplayName = "INVALID_DONT_USE"),
+	MODE_2D = 0 UMETA(DisplayName = "2D"),
+	MODE_3D = 3 UMETA(DisplayName = "3D"),
 };
 
 /**

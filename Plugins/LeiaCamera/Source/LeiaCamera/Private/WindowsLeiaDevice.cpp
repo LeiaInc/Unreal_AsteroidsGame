@@ -1,18 +1,32 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #include "WindowsLeiaDevice.h"
 
+//UE_LOG(LogLeia, Log, TEXT("SetFinalViewRect %d %f"), someInt, someFloat);
+
 WindowsLeiaDevice::WindowsLeiaDevice()
 {
-#if PLATFORM_WINDOWS && !WITH_EDITOR
-	hmodDisplaySdkCpp = LoadLibrary(_T("C:\\Program Files\\LeiaInc\\LeiaDisplaySdk\\LeiaDisplaySdkCpp.dll"));
+#if LEIA_USE_SERVICE
+	hmodDisplaySdkCpp = LoadLibrary(_T("LeiaDisplaySdkCpp.dll"));
 	hmodDisplayParams = LoadLibrary(_T("C:\\Program Files\\LeiaInc\\LeiaDisplaySdk\\LeiaDisplayParams.dll"));
+
+	if (hmodDisplaySdkCpp == nullptr) { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::Constructor(line 15) : hmodDisplaySDKCpp is set to null pointer. Expected to find 'C:\\Program Files\\LeiaInc\\LeiaDisplaySdk\\LeiaDisplaySdkCpp.dll'. Confirm Leia Service was setup appropriately.")); }
+	if (hmodDisplayParams == nullptr) { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::Constructor(line 16) : hmodDisplayParams set to null pointer. Expected to find 'C:\\Program Files\\LeiaInc\\LeiaDisplaySdk\\LeiaDisplayParams.dll'. Confirm Leia Service was setup appropriately.")); }
 #endif
 }
 
 WindowsLeiaDevice::~WindowsLeiaDevice()
 {
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return;
+	}
+#if LEIA_USE_SERVICE
 	FreeLibrary(hmodDisplaySdkCpp);
 	FreeLibrary(hmodDisplayParams);
 #endif
@@ -20,9 +34,14 @@ WindowsLeiaDevice::~WindowsLeiaDevice()
 
 bool WindowsLeiaDevice::IsConnected()
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		UE_LOG(LogLeia, Log, TEXT("LeiaLog : WindowsLeiaDevice::IsConnected(line 34) : defaulting IsConnected to true."));
+		return true;
+	}
 	bool isDisplayConnected = false;
 
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+#if LEIA_USE_SERVICE
 	if (hmodDisplaySdkCpp != nullptr)
 	{
 		if (fPtrConnected == nullptr)
@@ -34,34 +53,41 @@ bool WindowsLeiaDevice::IsConnected()
 		{
 			isDisplayConnected = fPtrConnected();
 		}
+		else { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::IsConnected(line 46) : fPtrConnected set to null pointer. Expected to find isDisplayConnected function in hmodDisplaySDKCpp. ")); }
 	}
+		else { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::IsConnected(line 42) : hmodDisplaySDKCpp is set to null pointer. Expected to find C:\\Program Files\\LeiaInc\\LeiaDisplaySdk\\LeiaDisplaySdkCpp.dll. Confirm Leia Service was setup appropriately.")); }
 #endif
+
 	return isDisplayConnected;
 }
 
 void WindowsLeiaDevice::SetBacklightMode(BacklightMode modeId)
 {
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+#if LEIA_USE_SERVICE
 
 	if (IsConnected())
 	{
 		if (fPtrRequestBacklight == nullptr)
 		{
-			fPtrRequestBacklight = (MINT_VOID)GetProcAddress(hmodDisplaySdkCpp, "requestBacklightMode");
+			fPtrRequestBacklight = (MINT_VOID)GetProcAddress(hmodDisplaySdkCpp, "requestBacklightMode"); 
 		}
 
 		if (fPtrRequestBacklight != nullptr)
 		{
-			fPtrRequestBacklight((modeId == BacklightMode::MODE_3D) ? 1 : 0);
+			fPtrRequestBacklight(static_cast<int>(modeId));
+			if (modeId == BacklightMode::MODE_3D) { UE_LOG(LogLeia, Log, TEXT("LeiaLog : WindowsLeiaDevice::SetBacklightMode(line 67) : Successfully set backlight to 3D.")); }
+			if (modeId == BacklightMode::MODE_2D) { UE_LOG(LogLeia, Log, TEXT("LeiaLog : WindowsLeiaDevice::SetBacklightMode(line 67) : Successfully set backlight to 2D.")); }
 		}
+		else { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::SetBacklightMode(line 69) : fPtrRequestBacklight set to null pointer. Expected to find requestBacklightMode function in hmodDisplaySDKCpp. ")); }
 	}
+	else { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::SetBacklightMode(line 65) : IsConnected returned false. ")); }
 #endif
 }
 
 BacklightMode WindowsLeiaDevice::GetBacklightMode()
 {
 	BacklightMode mode = BacklightMode::MODE_2D;
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+#if LEIA_USE_SERVICE
 	if (IsConnected())
 	{
 		if (fPtrGetBacklightMode == nullptr)
@@ -72,16 +98,26 @@ BacklightMode WindowsLeiaDevice::GetBacklightMode()
 		if (fPtrGetBacklightMode != nullptr)
 		{
 			mode = static_cast<BacklightMode>(fPtrGetBacklightMode());
+			if (mode == BacklightMode::MODE_3D) { UE_LOG(LogLeia, Log, TEXT("LeiaLog : WindowsLeiaDevice::GetBacklightMode(line 99) : Successfully read backlight from firmware as 3D.")); }
+			if (mode == BacklightMode::MODE_2D) { UE_LOG(LogLeia, Log, TEXT("LeiaLog : WindowsLeiaDevice::GetBacklightMode(line 99) : Successfully read backlight from firmware as 2D.")); }
 		}
+		else { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::GetBacklightMode(line 92) : fPtrGetBacklightMode set to null pointer. Expected to find getBacklightMode function in hmodDisplaySDKCpp. ")); }
 	}
+	else { UE_LOG(LogLeia, Warning, TEXT("LeiaLog : WindowsLeiaDevice::GetBacklightMode(line 88) : IsConnected returned false. ")); }
 #endif
 	return mode;
 }
 
 FDisplayConfig WindowsLeiaDevice::GetDisplayConfig()
 {
+	if (OverrideMode != EViewOverrideMode::None)
+	{
+		return AbstractLeiaDevice::GetDisplayConfig();
+	}
+
 	FDisplayConfig displayConfig;
-#if PLATFORM_WINDOWS && !WITH_EDITOR
+
+#if LEIA_USE_SERVICE
 
 	if (IsConnected())
 	{

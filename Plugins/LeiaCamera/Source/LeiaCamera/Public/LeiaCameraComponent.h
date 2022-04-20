@@ -1,4 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #pragma once
 
@@ -14,89 +19,91 @@ class LEIACAMERA_API ULeiaCameraComponent : public USceneComponent, public LeiaC
 {
 	GENERATED_BODY()
 
-public:	
+public:
 	// Sets default values for this component's properties
 	ULeiaCameraComponent();
 
 	/** TargetCamera component that will receive post-processed output*/
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Camera Grid Setup")
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Leia Camera Component Setup")
 	class UCameraComponent* TargetCamera = nullptr;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(BlueprintReadOnly, Category = "Leia Camera Component Setup")
 	FLeiaCameraConstructionInfo ConstructionInfo;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Grid Setup")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Component Setup")
 	FLeiaCameraRenderingInfo RenderingInfo;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Grid Setup")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Component Setup")
 	FLeiaCameraZdpInfo ZdpInfo;
 
 	/** Gamma value applied to render texture */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Grid Setup", meta = (ClampMin = "0.01"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Leia Camera Component Setup", meta = (ClampMin = "0.01"))
 	float Gamma = 2.2f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Component Setup")
 	UMaterialParameterCollection* CommmonMatParamCollection = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Component Setup")
 	UMaterialParameterCollection* InterlaceMatParamCollection = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Component Setup")
 	UMaterialParameterCollection* ViewSharpeningeMatParamCollection = nullptr;
 
 	/** Array of cameras in the generated grid */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Instanced, NonTransactional)
-	TArray<class USceneCaptureComponent2D*> Cameras;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Instanced, NonTransactional, Category = "Leia Camera Component Setup")
+	TArray<class USceneComponent*> Cameras;
 
 	/** Can be called after modification of RenderingInfo to apply changes */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	void RefreshCameraGrid();
 
 	/** When called, A new set of cameras will be generated based on provided Construction Info */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	void CreateCameraGrid(const FLeiaCameraConstructionInfo& constructionInfo_);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	class UMaterialInstanceDynamic* GetPositiveDOFMaterialInst() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	class UMaterialInstanceDynamic* GetViewSharpeningMaterialInst() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	class UMaterialInstanceDynamic* GetViewInterlacingMaterialInst() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	bool IsZdpShearEnabled() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	void SetZdpShearEnabled(bool isEnabled);
 
 	/** Allows to set the parameters for the ACT/View sharpening material */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	void SetACTCoEfficents(float A, float B);
 
 	/** Toggle calibration square */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
 	void ShowCalibrationSqaure(bool show);
+
+	void SetDeviceOverride();
 
 protected:
 
-	UPROPERTY(VisibleDefaultsOnly)
+	UPROPERTY(VisibleDefaultsOnly, Category = "Leia Camera Component Setup")
 	USceneComponent* SceneRoot = nullptr;
 
-	UPROPERTY(EditAnywhere, Category = "Debug Display")
+	UPROPERTY(EditAnywhere, Category = "Leia Camera Component Setup")
 	bool bDisplayFrustum = true;
 
-	UPROPERTY(VisibleAnywhere, Category = "Debug Display")
-	EViewMode ViewMode = EViewMode::FourView;
+	UPROPERTY(VisibleAnywhere, Category = "Leia Camera Component Setup")
+	EViewMode ViewMode = EViewMode::AndroidPegasus_12p3_8V;
 
-	UFUNCTION()
+	UFUNCTION(Category = "Leia Camera Component Setup")
 	void OnScreenOrientationChanged(EScreenOrientation::Type type);
 
-	UFUNCTION()
+	UFUNCTION(Category = "Leia Camera Component Setup")
 	void AppEnterBackground();
 
-	UFUNCTION()
+	UFUNCTION(Category = "Leia Camera Component Setup")
 	void AppEnterForeground();
 
 	// Called when the game starts

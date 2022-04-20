@@ -1,15 +1,16 @@
 {
+	"EngineVersion": "4.26",
 	"FileVersion": 3,
-	"Version": 1,
-	"VersionName": "1.0",
+	"Version": 6,
+	"VersionName": "0.0.6",
 	"FriendlyName": "LeiaCamera",
-	"Description": "",
+	"Description": "Enliven your creations with a suite of tools that make it simple to design for multiview.",
 	"Category": "Other",
 	"CreatedBy": "Leia Inc",
 	"CreatedByURL": "",
-	"DocsURL": "",
-	"MarketplaceURL": "",
-	"SupportURL": "",
+	"DocsURL": "https://docs.leialoft.com/developer/unreal-sdk/unreal-sdk-guide",
+	"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/348831df63dc46229dd90bba878c6394",
+	"SupportURL": "https://forums.leialoft.com/c/leiatools/53",
 	"CanContainContent": true,
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
@@ -18,7 +19,8 @@
 		{
 			"Name": "LeiaCamera",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "PostConfigInit",
+			"WhitelistPlatforms": [ "Win64", "Android" ]
 		}
 	]
 }

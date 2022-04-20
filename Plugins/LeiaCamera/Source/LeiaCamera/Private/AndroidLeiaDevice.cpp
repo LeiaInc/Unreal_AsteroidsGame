@@ -1,4 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 
 #include "AndroidLeiaDevice.h"
@@ -97,6 +102,16 @@ BacklightMode AndroidLeiaDevice::GetBacklightMode()
 
 FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 {
+//	return AbstractLeiaDevice::GetDisplayConfig();
+
+	static bool displayConfigRead = false;
+	static FDisplayConfig displayConfig;
+
+	if (displayConfigRead)
+	{
+		return displayConfig;
+	}
+
 	FString str = "";
 #if PLATFORM_ANDROID
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv(true))
@@ -109,7 +124,6 @@ FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 	TArray<FString> outStrArray;
 	str.ParseIntoArrayLines(outStrArray);
 
-	FDisplayConfig displayConfig;
 
 	if (outStrArray.Num() != 0)
 	{
@@ -195,5 +209,6 @@ FDisplayConfig AndroidLeiaDevice::GetDisplayConfig()
 		}
 	}
 
+	displayConfigRead = true;
 	return displayConfig;
 }

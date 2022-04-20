@@ -1,4 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #pragma once
 
@@ -14,10 +19,55 @@
 
 class UMaterialInstanceDynamic;
 
+class ASceneCapture2D;
+class USceneComponent;
+
+#define LEIA_STEREO_PATH (0)
+
+
+
+UCLASS()
+class LEIACAMERA_API UViewDataComp : public USceneComponent
+{
+	GENERATED_BODY()
+
+public:
+	FMatrix CustomProjectionMatrix;
+};
+
+UCLASS()
+class LEIACAMERA_API AViewData : public AActor
+{
+	GENERATED_BODY()
+
+public:
+	AViewData(const FObjectInitializer& ObjectInitializer);
+	void Serialize(FArchive& Ar);
+
+	//Makes bouncing between 7summits and this path easier
+	UViewDataComp* GetCaptureComponent2D() { return sceneComp; }
+
+	UViewDataComp* sceneComp;
+};
+
+#if LEIA_STEREO_PATH
+typedef AViewData CaptureActor;
+typedef UViewDataComp CaptureComponent;
+#else
+typedef ASceneCapture2D CaptureActor;
+typedef USceneCaptureComponent2D CaptureComponent;
+#endif
+
+
 UENUM(BlueprintType)
 enum class EViewMode : uint8 {
-	FourView UMETA(DisplayName = "FourView"),
-	EightView UMETA(DisplayName = "EightView")
+	LumePad UMETA(DisplayName = "LumePad"),
+	Windows_12p5_8V UMETA(DisplayName = "Windows_12p5_8V"),
+	AndroidPegasus_12p5_8V UMETA(DisplayName = "AndroidPegasus_12p5_8V"),
+	AndroidPegasus_12p3_8V UMETA(DisplayName = "AndroidPegasus_12p3_8V"),
+	Windows_15p6_12V UMETA(DisplayName = "Windows_15p6_12V"),
+	Windows_15p6_13V UMETA(DisplayName = "Windows_15p6_13V"),
+	None UMETA(DisplayName = "NoOverride_UseFirmware")
 };
 
 USTRUCT(BlueprintType)
@@ -26,15 +76,15 @@ struct FLeiaCameraConstructionInfo
 	GENERATED_BODY()
 
 	/** Number of cameras spawned horizontally in the grid */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "4", ClampMax = "8"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "4", ClampMax = "8"), Category = "Leia Camera Construction Info")
 	int32 GridWidth = 8;
 
 	/** Number of pixels horizontally in a texture */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "32"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "32"), Category = "Leia Camera Construction Info")
 	int32 RenderTextureResolutionWidth = 1280;
 
 	/** Number of pixels vertically in a texture */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "32"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "32"), Category = "Leia Camera Construction Info")
 	int32 RenderTextureResolutionHeight = 720;
 };
 
@@ -45,46 +95,46 @@ struct FLeiaCameraRenderingInfo
 	GENERATED_BODY()
 
 	/** Distance scaling between spawned cameras */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "128.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0.0", ClampMax = "128.0"), Category = "Leia Camera Rendering Info")
 	float Baseline = 50.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	TEnumAsByte<ECameraProjectionMode::Type> ProjectionType = ECameraProjectionMode::Type::Perspective;
 
 	/** Field of view in degrees applied to the cameras when in perspective mode */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0", ClampMax = "170.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0", ClampMax = "170.0"), Category = "Leia Camera Rendering Info")
 	float FieldOfView = 60.0f;
 
 	/** Units in view of the camera when in Ortho mode */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0"), Category = "Leia Camera Rendering Info")
 	float OrthographicWidth = 640.0f;
 
 	/** Distance to near clip plane */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	float NearClipPlane = 10.0f;
 
 	/** Distance to far clip plane */
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	float FarClipPlane = 5000.0f;
 
 	/** Distance ahead of each camera where their frustums converge */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "1.0"), Category = "Leia Camera Rendering Info")
 	float ConvergenceDistance = 200.0f;
 
 	/** PostProcess Material To Use for DOF*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	class UMaterialInterface* PostProcessMaterialPositiveDOF = nullptr;
 
 	/** PostProcess Material To Use for ZDP*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	class UMaterialInterface* PostProcessMaterialZDP = nullptr;
 
 	/** PostProcess Material To Use for Interlacing*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	class UMaterialInterface* PostProcessMaterialViewInterlacing = nullptr;
 
 	/** PostProcess Material To Use For View Sharpening*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Rendering Info")
 	class UMaterialInterface* PostProcessMaterialViewSharpening = nullptr;
 
 };
@@ -95,26 +145,41 @@ struct FLeiaCameraZdpInfo
 	GENERATED_BODY()
 
 	/** Enable ZDP Shear*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera ZDP Info")
 	bool bUseZdpShear = false;
 
 	/** Enable Auto ZDP */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera ZDP Info")
 	bool bAutoZDP = false;
 
 	/** When AutoZDP is disabled, the ZDPShear value will be used */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera ZDP Info")
 	float ZDPShear = 0.0f;
 
 	/** Number of pixels vertically in a texture */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera ZDP Info")
 	float ConvergenceOffset = 0.0f;
 
 	/** The ObjectType to consider while raycast is performed to calculate ZDP and convergence value */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera ZDP Info")
 	TEnumAsByte<EObjectTypeQuery> ObjectTypeToQuery;
 };
 
+struct InterlaceParams
+{
+	float viewsX; float viewsY; FLinearColor viewOffset; FLinearColor viewRes;
+	FLinearColor intVecs; FLinearColor matA; FLinearColor matB; FLinearColor matC; FLinearColor matD;
+};
+
+struct SharpenParams
+{
+	float gamma; 
+	float sharpeningCenter;
+	FLinearColor sharpeningSize;
+	FLinearColor sharpeningX;
+	FLinearColor sharpeningY;
+	FLinearColor textureInvSize;
+};
 
 class LEIACAMERA_API LeiaCameraBase
 {
@@ -169,7 +234,7 @@ protected:
 	 */
 	void CreateAndSetRenderTarget(UObject* const worldContext, class USceneCaptureComponent2D* const scenecaptureComp, const FLeiaCameraConstructionInfo& constructionInfo, float gamma = 2.2f) const;
 
-	void SetPostProcessingValuesFromTargetCamera(class USceneCaptureComponent2D* const scenecaptureComp, class UCameraComponent* const targetCamera);
+	void SetPostProcessingValuesFromTargetCamera(USceneCaptureComponent2D* const scenecaptureComp, class UCameraComponent* const targetCamera);
 
 	/**
 	 * Calculates the grid width offset based on the provided Construction Info
@@ -257,14 +322,14 @@ protected:
 	 * @param worldPos - World space location
 	 * @param camera - The scene capture component which will be considered while converting world to screen point
 	 */
-	FVector WorldToScreenPoint(const FVector& worldPos, USceneCaptureComponent2D* camera) const;
+	FVector WorldToScreenPoint(const FVector& worldPos, CaptureComponent* camera) const;
 
 	/**
 	 * Returns the value for ZDP while 'auto ZDP' is enabled
 	 */
 	float CalculateAutoZdpShearValue(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo, 
 		const FLeiaCameraZdpInfo& zdpInfo, const FTransform& targetCamTransform, float interviewDistance, 
-		USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB)const;
+		CaptureComponent * camA, CaptureComponent * camB)const;
 
 	/** Returns the value for horizontal relative position of the cameras */
 	float UpdateViews(int index, const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, bool emissionRescalingEnabled = true) const;
@@ -272,12 +337,19 @@ protected:
 	/**
 	 * Sets all common ZDP material params by using a MaterialParameterCollectionInstance
 	 */
-	void SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB, const FTransform& targetCamTransform);
+	void SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, CaptureComponent* camA, CaptureComponent* camB, const FTransform& targetCamTransform);
 
 	/**
 	 * Sets all Interlacing material params by using a MaterialParameterCollectionInstance
 	 */
 	 void SetInterlaceMaterialParams(EScreenOrientation::Type orientation);
+
+
+
+	 void GetInterlaceParams(EScreenOrientation::Type orientation, InterlaceParams & interlaceParams);
+
+	 void GetViewSharpeningParams(const FDisplayConfig& config, SharpenParams& sharpenShaderParams);
+
 
 
 	 /**

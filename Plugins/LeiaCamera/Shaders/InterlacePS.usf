@@ -1,0 +1,156 @@
+#pragma once
+
+#include "/Engine/Public/Platform.ush"
+
+#define MaterialFloat2 half2
+
+struct InputVS
+{
+	float4 Position : ATTRIBUTE0;
+	float2 UV : ATTRIBUTE1;
+};
+
+struct OutputVS
+{
+	float4	Position : SV_POSITION;
+	float4	UV : TEXCOORD0;
+};
+
+struct OutputPS
+{
+	float4 Color : SV_Target0;
+};
+
+struct FScreenVertexOutput
+{
+#if METAL_PROFILE || COMPILER_GLSL_ES3_1
+	noperspective float2 UV : TEXCOORD0;
+#else
+	noperspective MaterialFloat2 UV : TEXCOORD0;
+#endif
+	float4 Position : SV_POSITION;
+};
+
+Texture2D texture_0;
+SamplerState texture_0Sampler;
+
+float viewsX;
+float viewsY;
+float viewResX;
+float viewResY;
+float4 viewOffset;
+float4 interlace_vector;
+float4 interlace_matrixA;
+float4 interlace_matrixB;
+float4 interlace_matrixC;
+float4 interlace_matrixD;
+
+
+float4 Texture2DSample(Texture2D Tex, SamplerState Sampler, float2 UV)
+{
+	return Tex.Sample(Sampler, UV);
+}
+
+void MainPS(
+	FScreenVertexOutput Input,
+	out float4 result : SV_Target0
+	)
+{
+	//OutColor = InTexture.Sample(InTextureSampler, Input.UV);
+
+	float2 normalized_display_coord = Input.UV - (0.5f / float2(viewResX, viewResY));
+
+	float4x4 normalized_display_pixel_matrix = float4x4(
+		normalized_display_coord.xxxx,
+		1.0 - normalized_display_coord.yyyy,
+		(float4(0, 1, 2, 0) / 3.0),
+		float4(0, 0, 0, 0)
+	);
+
+float4x4 normalized_view_pixel_matrix = mul(
+float4x4(interlace_matrixA, interlace_matrixB,
+interlace_matrixC, interlace_matrixD), normalized_display_pixel_matrix);
+
+for (int axis = 0; axis < 4; ++axis) {
+		normalized_view_pixel_matrix[axis] += interlace_vector[axis];
+	}
+
+result = float4(0, 0, 0, 1);
+//result = texture_0.Sample(texture_0Sampler, Input.UV);
+
+[unroll]
+	for (int channelIndex = 0; channelIndex < 3; ++channelIndex) {
+		float4 normalized_view_pixel = float4(
+			normalized_view_pixel_matrix[0][channelIndex],
+			normalized_view_pixel_matrix[1][channelIndex],
+			normalized_view_pixel_matrix[2][channelIndex],
+			normalized_view_pixel_matrix[3][channelIndex]
+		);
+
+       normalized_view_pixel.y = 1.0 - normalized_view_pixel.y;
+
+       float4 viewRes = float4(viewResX, viewResY, 3.0, viewsX * viewsY);
+
+	   float4 float_precision_offset = 0.5;
+
+	   /*
+	   // @Lee: Here's a possible improvement to interlacing. 
+	   // It mimics a fix that was made for LumePad interlacing.
+	   // Uncomment this block and see if interlacing looks better. 
+	   viewRes.w = viewsX;
+       float_precision_offset = 0.5 - float4(0.0, 0.0, 0.0, 1.0) * (1.0 / max(2.0, viewRes.w));
+	   */
+
+       float4 periodicA = viewRes * normalized_view_pixel + float_precision_offset;
+       float4 periodicB = viewRes;
+       float4 periodicModRes = periodicA - periodicB * floor(periodicA/periodicB);
+       int4 view_pixel = int4(periodicModRes);
+
+       int channel = view_pixel.z;
+	   int view = view_pixel.w;
+
+	   // View offsetting. 
+	   //
+	   // For LumePad, the calculation is "view = (view + ((int)viewsX/2)) % viewsX;"
+	   // This translates the view index from {0,1,2,3} to {2,3,0,1}. I'm guessing the "view offset" for LumePad is 2.
+	   //
+	   // For 12V, Joe showed an offset of 7, so the calculation would be: "view = (view + 7) % 12;"
+	   // This translates the view index from {0,1,2,3,4,5,6,7,8,9,10,11} to {7,8,9,10,11,0,1,2,3,4,5,6}.
+	   view = (view + (int)viewOffset.x) % (int)viewsX;
+
+      float viewScale = (1.0 / viewsX);
+
+#if 1
+
+      normalized_view_pixel.x = viewScale * normalized_view_pixel.x +  view * viewScale;
+      result[channelIndex] = Texture2DSample(texture_0, texture_0Sampler, normalized_view_pixel.xy)[channel];
+
+#else
+
+      if (view == 0) 
+      {
+        result[channelIndex] = texture_0.Sample(texture_0Sampler, normalized_view_pixel.xy)[channel];
+      }
+	  else if (view == 1) {
+        result[channelIndex] = Texture2DSample(texture_1, texture_1Sampler, normalized_view_pixel.xy)[channel];
+      }
+	  else if (view == 2) {
+        result[channelIndex] =Texture2DSample(texture_2, texture_2Sampler, normalized_view_pixel.xy)[channel];
+      }
+	  else if (view == 3) {
+        result[channelIndex] = Texture2DSample(texture_3, texture_3Sampler, normalized_view_pixel.xy)[channel];
+      }
+
+#endif
+	}
+
+	//result = texture_0.Sample(texture_0Sampler, Input.UV);
+
+	/* 
+	// Show viewOffset value. Draw yellow bar corresponding to offset.
+	float u0 = viewOffset.x / viewsX;
+	float u1 = u0 + 1.0f/viewsX;
+	if (Input.UV.x >= u0 && Input.UV.x <= u1) 
+		result = float4(1.0f,1.0f,0.0f,1.0f);
+	*/
+}

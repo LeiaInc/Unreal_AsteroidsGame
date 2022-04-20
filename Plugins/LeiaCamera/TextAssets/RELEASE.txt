@@ -1,11 +1,11 @@
-LeiaLoft Unreal SDK version 0.0.5
+LeiaLoft Unreal SDK version 0.0.6
 
 We're excited to launch our first release of our Unreal SDK.  Please note that this is a beta version with APIs that are subject to change as the product matures.
 
 What dev machines does the Unreal SDK run on?
 ‌
-The LeiaLoft Unreal SDK has been tested with Unreal Engine 4.24 and 4.25
-Development can be done from within Unreal Engine on a Linux or Windows machine
+The LeiaLoft Unreal SDK has been tested with Unreal Engine 4.26 and 4.27
+Development can be done from within Unreal Engine on a Windows machine
 ‌
 Which LitByLeia™ devices does the Unreal SDK support?
 ‌

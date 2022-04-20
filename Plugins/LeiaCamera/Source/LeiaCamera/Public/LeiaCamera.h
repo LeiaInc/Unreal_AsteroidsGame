@@ -1,15 +1,31 @@
-// Copyright 1998-2019 Epic Games, Inc. All Rights Reserved.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Modules/ModuleManager.h"
+#include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
 
-class FLeiaCameraModule : public IModuleInterface
+#define LEIA_IS_UE5 (ENGINE_MAJOR_VERSION == 5)
+
+class FLeiaCameraModule : public IHeadMountedDisplayModule
 {
 public:
 
 	/** IModuleInterface implementation */
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
+
+	virtual FString GetModuleKeyName() const override
+	{
+		return FString("LeiaCamera");
+	}
+
+	virtual TSharedPtr< class IXRTrackingSystem, ESPMode::ThreadSafe > CreateTrackingSystem() override;
+
+	virtual bool IsHMDConnected() override { return true; }
 };

@@ -1,11 +1,20 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "SceneViewExtension.h"
 #include "LeiaCameraBase.h"
 #include "LeiaCameraPawn.generated.h"
+
+
+
 
 UCLASS()
 class LEIACAMERA_API ALeiaCameraPawn : public APawn, public LeiaCameraBase
@@ -16,87 +25,92 @@ public:
 	// Sets default values for this pawn's properties
 	ALeiaCameraPawn();
 
+	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	bool useACT = true;
+	void ToggleACT();
+
 	/** The Actor that contains a CameraComponent or SceneCaptureComponent2D */
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Camera Grid Setup")
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Leia Camera Pawn Setup")
 	AActor* TargetCamera = nullptr;
 
 	/** TargetCamera component that will receive post-processed output*/
-	UPROPERTY(VisibleAnywhere, Category = "Camera Grid Setup")
+	UPROPERTY(VisibleAnywhere, Category = "Leia Camera Pawn Setup")
 	class UCameraComponent* TargetCameraComponent = nullptr;
 
-	UPROPERTY(BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
 	FLeiaCameraConstructionInfo ConstructionInfo;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Grid Setup")
+	UPROPERTY(EditAnywhere, Category = "Leia Camera Pawn Setup")
+	EViewMode DeviceConfigOverrideMode = EViewMode::AndroidPegasus_12p3_8V;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Pawn Setup")
 	FLeiaCameraRenderingInfo RenderingInfo;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera Grid Setup")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Pawn Setup")
 	FLeiaCameraZdpInfo ZdpInfo;
 
 	/** Gamma value applied to render texture */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Camera Grid Setup", meta = (ClampMin = "0.01"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Leia Camera Pawn Setup", meta = (ClampMin = "0.01"))
 	float Gamma = 2.2f;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
 	UMaterialParameterCollection* CommmonMatParamCollection = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
 	UMaterialParameterCollection* InterlaceMatParamCollection = nullptr;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera Grid Setup")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
 	UMaterialParameterCollection* ViewSharpeningeMatParamCollection = nullptr;
-
 	/** Array of cameras in the generated grid */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
-	TArray<class ASceneCapture2D*> Cameras;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
+	TArray<class AActor*> Cameras;
 
 	/** Can be called after modification of RenderingInfo to apply changes */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	void RefreshCameraGrid();
 
 	/** When called, A new set of cameras will be generated based on provided Construction Info */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	void CreateCameraGrid(const FLeiaCameraConstructionInfo& constructionInfo_);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	class UMaterialInstanceDynamic* GetPositiveDOFMaterialInst() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	class UMaterialInstanceDynamic* GetViewSharpeningMaterialInst() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	class UMaterialInstanceDynamic* GetViewInterlacingMaterialInst() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	bool IsZdpShearEnabled() const;
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	void SetZdpShearEnabled(bool isEnabled);
 
 	/** Allows to set the parameters for the ACT/View sharpening material */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	void SetACTCoEfficents(float A, float B);
 
 	/** Toggle calibration square */
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	void ShowCalibrationSqaure(bool show);
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	float GetCurrentShearValue() const;
 
+	IRendererModule* RendererModule;
+	InterlaceParams interlaceShaderParams;
+	SharpenParams sharpenShaderParams;
 protected:
 
-	UPROPERTY(VisibleDefaultsOnly)
+	UPROPERTY(VisibleDefaultsOnly, Category = "Leia Camera Pawn Setup")
 	USceneComponent* SceneRoot = nullptr;
 
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<ASceneCapture2D> CameraObjRef;
 
-	UPROPERTY(EditAnywhere, Category = "Debug Display")
+	UPROPERTY(EditAnywhere, Category = "Leia Camera Pawn Setup")
 	bool bDisplayFrustum = true;
-
-	UPROPERTY(VisibleAnywhere, Category = "Debug Display")
-	EViewMode ViewMode = EViewMode::FourView;
 
 	const FName PropertiesThatRegenerateGrid = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, ConstructionInfo);
 	const FName PropertiesThatRequireProjectionMatrixRecalculation = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, RenderingInfo);
@@ -119,9 +133,11 @@ protected:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	void Destroyed() override;
+	virtual void Destroyed() override;
 
 	void OnConstruction(const FTransform& Transform) override;
+
+	void SetDeviceOverride();
 
 private:
 

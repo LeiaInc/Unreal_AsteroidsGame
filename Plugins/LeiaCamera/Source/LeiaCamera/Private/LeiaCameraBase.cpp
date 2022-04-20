@@ -1,4 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+/****************************************************************
+*
+* Copyright 2022 © Leia Inc.
+*
+****************************************************************
+*/
 
 #include "LeiaCameraBase.h"
 #include "Engine/TextureRenderTarget2D.h"
@@ -39,7 +44,7 @@ LeiaCameraBase::LeiaCameraBase()
 {
 #if PLATFORM_ANDROID
 	Device = new AndroidLeiaDevice();
-#elif PLATFORM_WINDOWS && !WITH_EDITOR
+#elif LEIA_USE_SERVICE
 	Device = new WindowsLeiaDevice();
 #else
 	Device = new AbstractLeiaDevice();
@@ -133,24 +138,24 @@ void LeiaCameraBase::DisplayCameraFrustum(const FTransform& localTransform, cons
 
 		FVector FLTintersectAtFarPlane, FRTintersectAtFarPlane, FLBintersectAtFarPlane, FRBintersectAtFarPlane;
 
-		FMath::IntersectPlanes3(FLTintersectAtFarPlane, farPlane, lftPlane, topPlane);
-		FMath::IntersectPlanes3(FRTintersectAtFarPlane, farPlane, rgtPlane, topPlane);
-		FMath::IntersectPlanes3(FLBintersectAtFarPlane, farPlane, lftPlane, btmPlane);
-		FMath::IntersectPlanes3(FRBintersectAtFarPlane, farPlane, rgtPlane, btmPlane);
+		if (!FMath::IntersectPlanes3(FLTintersectAtFarPlane, farPlane, lftPlane, topPlane))	{ return; }
+		if (!FMath::IntersectPlanes3(FRTintersectAtFarPlane, farPlane, rgtPlane, topPlane)) { return; }
+		if (!FMath::IntersectPlanes3(FLBintersectAtFarPlane, farPlane, lftPlane, btmPlane)) { return; }
+		if (!FMath::IntersectPlanes3(FRBintersectAtFarPlane, farPlane, rgtPlane, btmPlane))	{ return; };
 
 		FVector FLTintersectAtNearPlane, FRTintersectAtNearPlane, FLBintersectAtNearPlane, FRBintersectAtNearPlane;
 
-		FMath::IntersectPlanes3(FLTintersectAtNearPlane, nearPlane, lftPlane, topPlane);
-		FMath::IntersectPlanes3(FRTintersectAtNearPlane, nearPlane, rgtPlane, topPlane);
-		FMath::IntersectPlanes3(FLBintersectAtNearPlane, nearPlane, lftPlane, btmPlane);
-		FMath::IntersectPlanes3(FRBintersectAtNearPlane, nearPlane, rgtPlane, btmPlane);
+		if (!FMath::IntersectPlanes3(FLTintersectAtNearPlane, nearPlane, lftPlane, topPlane)) { return; }
+		if (!FMath::IntersectPlanes3(FRTintersectAtNearPlane, nearPlane, rgtPlane, topPlane))	{ return; }
+		if (!FMath::IntersectPlanes3(FLBintersectAtNearPlane, nearPlane, lftPlane, btmPlane))	{ return; }
+		if (!FMath::IntersectPlanes3(FRBintersectAtNearPlane, nearPlane, rgtPlane, btmPlane))	{ return; }
 
 		FVector FLTintersectAtConvergence, FRTintersectAtConvergence, FLBintersectAtConvergence, FRBintersectAtConvergence;
 
-		FMath::IntersectPlanes3(FLTintersectAtConvergence, convergencePlane, lftPlane, topPlane);
-		FMath::IntersectPlanes3(FRTintersectAtConvergence, convergencePlane, rgtPlane, topPlane);
-		FMath::IntersectPlanes3(FLBintersectAtConvergence, convergencePlane, lftPlane, btmPlane);
-		FMath::IntersectPlanes3(FRBintersectAtConvergence, convergencePlane, rgtPlane, btmPlane);
+		if (!FMath::IntersectPlanes3(FLTintersectAtConvergence, convergencePlane, lftPlane, topPlane))	{ return; }
+		if (!FMath::IntersectPlanes3(FRTintersectAtConvergence, convergencePlane, rgtPlane, topPlane))	{ return; }
+		if (!FMath::IntersectPlanes3(FLBintersectAtConvergence, convergencePlane, lftPlane, btmPlane))	{ return; }
+		if (!FMath::IntersectPlanes3(FRBintersectAtConvergence, convergencePlane, rgtPlane, btmPlane))	{ return; }
 
 		FLTintersectAtFarPlane += cameraLocation;
 		FRTintersectAtFarPlane += cameraLocation;
@@ -526,10 +531,10 @@ FVector LeiaCameraBase::GetCameraFrustumNearCenter(UWorld* world, const FTransfo
 
 	FVector FLTintersectAtConvergence, FRTintersectAtConvergence, FLBintersectAtConvergence, FRBintersectAtConvergence;
 
-	FMath::IntersectPlanes3(FLTintersectAtConvergence, convergencePlane, lftPlane, topPlane);
-	FMath::IntersectPlanes3(FRTintersectAtConvergence, convergencePlane, rgtPlane, topPlane);
-	FMath::IntersectPlanes3(FLBintersectAtConvergence, convergencePlane, lftPlane, btmPlane);
-	FMath::IntersectPlanes3(FRBintersectAtConvergence, convergencePlane, rgtPlane, btmPlane);
+	if (!FMath::IntersectPlanes3(FLTintersectAtConvergence, convergencePlane, lftPlane, topPlane)) { return FLTintersectAtConvergence; }
+	if (!FMath::IntersectPlanes3(FRTintersectAtConvergence, convergencePlane, rgtPlane, topPlane)) { return FRTintersectAtConvergence; }
+	if (!FMath::IntersectPlanes3(FLBintersectAtConvergence, convergencePlane, lftPlane, btmPlane)) { return FLBintersectAtConvergence; }
+	if (!FMath::IntersectPlanes3(FRBintersectAtConvergence, convergencePlane, rgtPlane, btmPlane)) { return FRBintersectAtConvergence; }
 
 	FVector sourceVector = (isOrthoMode) ? forwardVec : ((FLBintersectAtConvergence + FRBintersectAtConvergence) * 0.5f);
 	const FVector traceOrigin = (isOrthoMode) ? camPos - (upVec * height) : camPos;
@@ -544,7 +549,7 @@ FVector LeiaCameraBase::GetCameraFrustumNearCenter(UWorld* world, const FTransfo
 	return result.ImpactPoint;
 }
 
-FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, USceneCaptureComponent2D* camera) const
+FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, CaptureComponent* camera) const
 {
 	FMatrix ViewRotationMatrix = FInverseRotationMatrix(camera->GetComponentRotation()) * FMatrix(
 		FPlane(0, 0, 1, 0),
@@ -563,7 +568,7 @@ FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, USceneCaptur
 
 float LeiaCameraBase::CalculateAutoZdpShearValue(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo,
 	const FLeiaCameraZdpInfo& zdpInfo, const FTransform& targetCamTransform, float interviewDistance,
-	USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB) const
+	CaptureComponent* camA , CaptureComponent* camB) const
 {
 
 	float aspectRatio = 0.0f;
@@ -613,7 +618,7 @@ float LeiaCameraBase::UpdateViews(int index, const FLeiaCameraRenderingInfo& ren
 	return posx;
 }
 
-void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB, const FTransform& targetCamTransform)
+void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, CaptureComponent* camA, CaptureComponent* camB, const FTransform& targetCamTransform)
 {
 	CommonMatParamCollectionInst->SetScalarParameterValue("ConvergenceDistance", renderingInfo.ConvergenceDistance);
 	CommonMatParamCollectionInst->SetScalarParameterValue("FarPlaneDistance", GetFarPlaneDistance(renderingInfo));
@@ -629,35 +634,54 @@ void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& 
 
 void LeiaCameraBase::SetInterlaceMaterialParams(EScreenOrientation::Type orientation)
 {
-	FDisplayConfig config = Device->GetDisplayConfig();
+	InterlaceParams interlaceShaderParams;
+	GetInterlaceParams(orientation, interlaceShaderParams);
 
-	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsX", static_cast<float>(config.numViews[0]));
-	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsY", static_cast<float>(config.numViews[1]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("viewRes",
-		FLinearColor(static_cast<float>(config.viewResolution[0]),
-			static_cast<float>(config.viewResolution[1]), 0.0f, 0.0f));
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsX",          interlaceShaderParams.viewsX);
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsY",          interlaceShaderParams.viewsY);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("viewRes",         interlaceShaderParams.viewRes);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceVector", interlaceShaderParams.intVecs);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatA",   interlaceShaderParams.matA);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatB",   interlaceShaderParams.matB);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatC",   interlaceShaderParams.matC);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatD",   interlaceShaderParams.matD);
+}
 
-	FDisplayConfig::OrientationConfig orientationConfig = Device->GetDisplayConfig().ToScreenOrientationConfig(orientation);
+void LeiaCameraBase::GetInterlaceParams(EScreenOrientation::Type orientation, InterlaceParams& interlaceParams)
+{
+	const FDisplayConfig config = Device->GetDisplayConfig();
+	const FDisplayConfig::OrientationConfig orientationConfig = Device->GetDisplayConfig().ToScreenOrientationConfig(orientation);
 
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceVector", FLinearColor(orientationConfig.interlacingVector));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatA", FLinearColor(orientationConfig.interlacingMatrix.M[0][0], orientationConfig.interlacingMatrix.M[0][1], orientationConfig.interlacingMatrix.M[0][2], orientationConfig.interlacingMatrix.M[0][3]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatB", FLinearColor(orientationConfig.interlacingMatrix.M[1][0], orientationConfig.interlacingMatrix.M[1][1], orientationConfig.interlacingMatrix.M[1][2], orientationConfig.interlacingMatrix.M[1][3]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatC", FLinearColor(orientationConfig.interlacingMatrix.M[2][0], orientationConfig.interlacingMatrix.M[2][1], orientationConfig.interlacingMatrix.M[2][2], orientationConfig.interlacingMatrix.M[2][3]));
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatD", FLinearColor(static_cast<int>(orientationConfig.interlacingMatrix.M[3][0]), orientationConfig.interlacingMatrix.M[3][1], orientationConfig.interlacingMatrix.M[3][2], orientationConfig.interlacingMatrix.M[3][3]));
+	interlaceParams.viewsX  = static_cast<float>(config.numViews[0]);
+	interlaceParams.viewsY  = static_cast<float>(config.numViews[1]);
+	interlaceParams.viewOffset = FLinearColor(static_cast<float>(config.alignmentOffset[0]), static_cast<float>(config.alignmentOffset[1]), 0.0f, 0.0f);
+	interlaceParams.viewRes = FLinearColor(static_cast<float>(config.viewResolution[0]), static_cast<float>(config.viewResolution[1]), 0.0f, 0.0f);
+	interlaceParams.intVecs = FLinearColor(orientationConfig.interlacingVector);
+	interlaceParams.matA    = FLinearColor(orientationConfig.interlacingMatrix.M[0][0], orientationConfig.interlacingMatrix.M[0][1], orientationConfig.interlacingMatrix.M[0][2], orientationConfig.interlacingMatrix.M[0][3]);
+	interlaceParams.matB    = FLinearColor(orientationConfig.interlacingMatrix.M[1][0], orientationConfig.interlacingMatrix.M[1][1], orientationConfig.interlacingMatrix.M[1][2], orientationConfig.interlacingMatrix.M[1][3]);
+	interlaceParams.matC    = FLinearColor(orientationConfig.interlacingMatrix.M[2][0], orientationConfig.interlacingMatrix.M[2][1], orientationConfig.interlacingMatrix.M[2][2], orientationConfig.interlacingMatrix.M[2][3]);
+	interlaceParams.matD    = FLinearColor(static_cast<int>(orientationConfig.interlacingMatrix.M[3][0]), orientationConfig.interlacingMatrix.M[3][1], orientationConfig.interlacingMatrix.M[3][2], orientationConfig.interlacingMatrix.M[3][3]);
+}
 
+void LeiaCameraBase::GetViewSharpeningParams(const FDisplayConfig& config, SharpenParams& sharpenShaderParams)
+{
+	sharpenShaderParams.gamma            = config.gamma;
+	sharpenShaderParams.sharpeningCenter = 1.0f;
+	sharpenShaderParams.sharpeningSize   = FLinearColor(config.sharpeningKernelX[0], config.sharpeningKernelY[0], 0, 0);
+	sharpenShaderParams.sharpeningX      = FLinearColor(config.sharpeningKernelX[1], config.sharpeningKernelX[2], config.sharpeningKernelX[3], config.sharpeningKernelX[4]);
+	sharpenShaderParams.sharpeningY      = FLinearColor(config.sharpeningKernelY[1], config.sharpeningKernelY[2], config.sharpeningKernelY[3], config.sharpeningKernelY[4]);
+	sharpenShaderParams.textureInvSize   = FLinearColor(1.0f / config.panelResolution[0], 1.0f / config.panelResolution[1], 0, 0);
 }
 
 void LeiaCameraBase::SetViewSharpeningMaterialParams()
 {
-	FDisplayConfig config = Device->GetDisplayConfig();
+	SharpenParams sharpenShaderParams;
+	GetViewSharpeningParams(Device->GetDisplayConfig(), sharpenShaderParams);
 
-	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma", config.gamma);
-	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", 1.0f);
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize", FLinearColor(config.sharpeningKernelX[0], config.sharpeningKernelY[0], 0, 0));
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX",
-		FLinearColor(config.sharpeningKernelX[1], config.sharpeningKernelX[2],
-			config.sharpeningKernelX[3], config.sharpeningKernelX[4]));
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY",
-		FLinearColor(config.sharpeningKernelY[1], config.sharpeningKernelY[2],
-			config.sharpeningKernelY[3], config.sharpeningKernelY[4]));
+	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma",            sharpenShaderParams.gamma);
+	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", sharpenShaderParams.sharpeningCenter);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize",   sharpenShaderParams.sharpeningSize);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX",      sharpenShaderParams.sharpeningX);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY",      sharpenShaderParams.sharpeningY);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("textureInvSize",   sharpenShaderParams.textureInvSize);
 }
