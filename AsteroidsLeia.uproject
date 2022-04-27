@@ -259,6 +259,7 @@
 	"TargetPlatforms": [
 		"Android",
 		"WindowsNoEditor",
-		"AllDesktop"
+		"AllDesktop",
+		"Windows"
 	]
 }
