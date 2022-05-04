@@ -254,6 +254,11 @@
 				"Mac",
 				"Linux"
 			]
+		},
+		{
+			"Name": "LeiaCamera",
+			"Enabled": true,
+			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/product/348831df63dc46229dd90bba878c6394"
 		}
 	],
 	"TargetPlatforms": [
