@@ -111,7 +111,7 @@ FDisplayConfig AbstractLeiaDevice::GetDisplayConfigWindows12p5_8V() const
 		{1, 0, 0, 0}, 
 		{0, 1, 0.00139, 0}, 
 		{0, 0, 1, 0}, 
-		{1440.0, -270.0, 0.375, 0} };
+		{1440.0, 270.0, 0.375, 0} };
 
 	displayConfig.interlacingMatrixLandscape = interlacingMatrix;
 	displayConfig.interlacingMatrixLandscape180 = interlacingMatrix;
@@ -165,21 +165,12 @@ FDisplayConfig AbstractLeiaDevice::GetDisplayConfigAndroidPegasus12p5_8V() const
 
 	displayConfig.viewResolution[0] = 1248;
 	displayConfig.viewResolution[1] = 720;
-	
-	//weighted act values
-	displayConfig.sharpeningKernelX[0] = displayConfig.sharpeningKernelY[0] = 9;
-	displayConfig.sharpeningKernelX[1] = displayConfig.sharpeningKernelY[1] = 0.096;
-	displayConfig.sharpeningKernelX[2] = displayConfig.sharpeningKernelY[2] = 0.009;
-	displayConfig.sharpeningKernelX[3] = displayConfig.sharpeningKernelY[3] = 0.017;
-	displayConfig.sharpeningKernelX[4] = displayConfig.sharpeningKernelY[4] = 0.008;
-	displayConfig.sharpeningKernelX[5] = displayConfig.sharpeningKernelY[5] = 0.008;
-	displayConfig.sharpeningKernelX[6] = displayConfig.sharpeningKernelY[6] = 0.004;
-	displayConfig.sharpeningKernelX[7] = displayConfig.sharpeningKernelY[7] = 0.0;
-	displayConfig.sharpeningKernelX[8] = displayConfig.sharpeningKernelY[8] = 0.0;
-	displayConfig.sharpeningKernelX[9] = displayConfig.sharpeningKernelY[9] = 0.0;
-	//additional weighted act values. test just act first before gamma and beta
-	//displayConfig.beta = 2;
-	//displayConfig.gamma = 2;
+
+	displayConfig.sharpeningKernelX[0] = 4;
+	displayConfig.sharpeningKernelX[1] = 0.1f;
+	displayConfig.sharpeningKernelX[2] = 0.02999999f;
+	displayConfig.sharpeningKernelX[3] = 0.02999999f;
+	displayConfig.sharpeningKernelX[4] = 0.02999999f;
 
 	FMatrix interlacingMatrix = { 
 		{1, 0, 0, 0}, 

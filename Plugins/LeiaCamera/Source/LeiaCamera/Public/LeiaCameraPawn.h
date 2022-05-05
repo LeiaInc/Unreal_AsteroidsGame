@@ -1,6 +1,6 @@
 /****************************************************************
 *
-* Copyright 2022 © Leia Inc.
+* Copyright 2022 ï¿½ Leia Inc.
 *
 ****************************************************************
 */
@@ -9,12 +9,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
-#include "SceneViewExtension.h"
 #include "LeiaCameraBase.h"
 #include "LeiaCameraPawn.generated.h"
-
-
-
 
 UCLASS()
 class LEIACAMERA_API ALeiaCameraPawn : public APawn, public LeiaCameraBase
@@ -25,11 +21,9 @@ public:
 	// Sets default values for this pawn's properties
 	ALeiaCameraPawn();
 
-	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
-	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-
-	bool useACT = true;
-	void ToggleACT();
+	/***/
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Camera Grid Setup")
+	DisplayMode displayMode = DisplayMode::MODE_3D;
 
 	/** The Actor that contains a CameraComponent or SceneCaptureComponent2D */
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Leia Camera Pawn Setup")
@@ -42,8 +36,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
 	FLeiaCameraConstructionInfo ConstructionInfo;
 
-	UPROPERTY(EditAnywhere, Category = "Leia Camera Pawn Setup")
-	EViewMode DeviceConfigOverrideMode = EViewMode::AndroidPegasus_12p3_8V;
+	UPROPERTY(VisibleAnywhere, Category = "Leia Camera Pawn Setup")
+	EViewMode DeviceConfigOverrideMode = EViewMode::None;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Leia Camera Pawn Setup")
 	FLeiaCameraRenderingInfo RenderingInfo;
 
@@ -62,9 +56,10 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
 	UMaterialParameterCollection* ViewSharpeningeMatParamCollection = nullptr;
+
 	/** Array of cameras in the generated grid */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Leia Camera Pawn Setup")
-	TArray<class AActor*> Cameras;
+	TArray<class ASceneCapture2D*> Cameras;
 
 	/** Can be called after modification of RenderingInfo to apply changes */
 	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
@@ -100,20 +95,34 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Leia Camera Pawn Setup")
 	float GetCurrentShearValue() const;
 
-	IRendererModule* RendererModule;
-	InterlaceParams interlaceShaderParams;
-	SharpenParams sharpenShaderParams;
 protected:
+
+	FLeiaCameraConstructionInfo savedConstructionInfoInstance = ConstructionInfo;
+
+	bool isDisplayModeChangedRecently = false;
+	DisplayMode lastDisplayMode = DisplayMode::MODE_3D;
 
 	UPROPERTY(VisibleDefaultsOnly, Category = "Leia Camera Pawn Setup")
 	USceneComponent* SceneRoot = nullptr;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Leia Camera Pawn Setup")
+	TSubclassOf<ASceneCapture2D> CameraObjRef;
 
 	UPROPERTY(EditAnywhere, Category = "Leia Camera Pawn Setup")
 	bool bDisplayFrustum = true;
 
+    bool bDisplayFrustumTemp = true;
+
 	const FName PropertiesThatRegenerateGrid = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, ConstructionInfo);
 	const FName PropertiesThatRequireProjectionMatrixRecalculation = GET_MEMBER_NAME_CHECKED(ALeiaCameraPawn, RenderingInfo);
+
+	bool isGameStarted = false;
+
+	UFUNCTION()
+	bool checkIfDisplayModeChanged();
+
+	UFUNCTION()
+	void changeDisplayMode();
 
 	UFUNCTION()
 	void OnScreenOrientationChanged(EScreenOrientation::Type type);
@@ -127,13 +136,15 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
+    virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 	/** Should tick be called even if actor is in the viewport and not in game */
 	virtual bool ShouldTickIfViewportsOnly() const override;
 
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	virtual void Destroyed() override;
+	void Destroyed() override;
 
 	void OnConstruction(const FTransform& Transform) override;
 
@@ -141,6 +152,7 @@ protected:
 
 private:
 
+	int savedGridWidth = 0;
 	void SpawnCameraGrid(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo);
 	void DestroyCamerasAndReleaseRenderTargets();
 

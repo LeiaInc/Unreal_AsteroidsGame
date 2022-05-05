@@ -51,7 +51,7 @@ public:
 
 	/** Array of cameras in the generated grid */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Instanced, NonTransactional, Category = "Leia Camera Component Setup")
-	TArray<class USceneComponent*> Cameras;
+	TArray<class USceneCaptureComponent2D*> Cameras;
 
 	/** Can be called after modification of RenderingInfo to apply changes */
 	UFUNCTION(BlueprintCallable, Category = "Leia Camera Component Setup")
@@ -95,7 +95,7 @@ protected:
 	bool bDisplayFrustum = true;
 
 	UPROPERTY(VisibleAnywhere, Category = "Leia Camera Component Setup")
-	EViewMode ViewMode = EViewMode::AndroidPegasus_12p3_8V;
+	EViewMode ViewMode = EViewMode::None;
 
 	UFUNCTION(Category = "Leia Camera Component Setup")
 	void OnScreenOrientationChanged(EScreenOrientation::Type type);

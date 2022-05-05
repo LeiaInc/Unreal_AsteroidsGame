@@ -8,8 +8,10 @@
 #include "LeiaCameraBase.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "Components/SceneCaptureComponent2D.h"
+//#include "Components/USceneCaptureComponent2D.h"
 #include "Kismet/KismetRenderingLibrary.h"
 #include "Components/LineBatchComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 #if PLATFORM_ANDROID
 #include "AndroidLeiaDevice.h"
 #elif PLATFORM_WINDOWS && !WITH_EDITOR
@@ -21,6 +23,7 @@
 #include "Camera/CameraComponent.h"
 #include "Engine/SceneCapture2D.h"
 #include "ILeiaDevice.h"
+#include "DrawDebugHelpers.h"
 
 struct CameraCalculatedParams
 {
@@ -62,6 +65,12 @@ void LeiaCameraBase::DisplayCameraFrustum(const FTransform& localTransform, cons
 	{
 		return;
 	}
+	FLinearColor nearComfortZoneColor = FLinearColor::Green;
+	FLinearColor farComfortZoneColor = FLinearColor::Blue;
+	FLinearColor convergencePlaneColor = FLinearColor::Yellow;
+	float batchedLineLifeTime = 2.0f;
+	float batchedLineThickness = -5.0f;
+	uint8 batchedLineDepthPriority = 77;
 
 	TArray<FBatchedLine> finalBatchedLines;
 	finalBatchedLines.Reserve(16 * constructionInfo.GridWidth);
@@ -116,15 +125,16 @@ void LeiaCameraBase::DisplayCameraFrustum(const FTransform& localTransform, cons
 
 		if (isOrthoMode)
 		{
-			farPlane = FPlane(forwardVec, renderingInfo.ConvergenceDistance + renderingInfo.FarClipPlane);
+			farPlane = FPlane(forwardVec, GetFarPlaneDistance(renderingInfo));
 		}
 		else
 		{
-			farPlane.W = (renderingInfo.FarClipPlane > 0.0f) ? -renderingInfo.FarClipPlane : renderingInfo.FarClipPlane;
+			farPlane.W = (GetFarPlaneDistance(renderingInfo) > 0.0f) ? -GetFarPlaneDistance(renderingInfo) : GetFarPlaneDistance(renderingInfo);
 		}
 
+        
 		nearPlane = farPlane;
-		nearPlane.W = ((isOrthoMode) ? 1 : -1) * renderingInfo.NearClipPlane;
+        nearPlane.W = ((isOrthoMode) ? 1 : -1) * GetNearPlaneDistance(renderingInfo);
 
 		convergencePlane = farPlane;
 		convergencePlane.W = ((isOrthoMode) ? 1 : -1) * renderingInfo.ConvergenceDistance;
@@ -135,6 +145,8 @@ void LeiaCameraBase::DisplayCameraFrustum(const FTransform& localTransform, cons
 			SetProperPlaneOrientation(forwardVec, rightVec, nearPlane);
 			SetProperPlaneOrientation(forwardVec, rightVec, convergencePlane);
 		}
+
+        //F: front, L: left, R: right, T: top, B: bottom
 
 		FVector FLTintersectAtFarPlane, FRTintersectAtFarPlane, FLBintersectAtFarPlane, FRBintersectAtFarPlane;
 
@@ -173,27 +185,43 @@ void LeiaCameraBase::DisplayCameraFrustum(const FTransform& localTransform, cons
 		FRBintersectAtConvergence += cameraLocation;
 
 		// Combine all lines into a single array of batched lines
-		finalBatchedLines.Push({ FLTintersectAtFarPlane, FRTintersectAtFarPlane, FLinearColor::Green, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRTintersectAtFarPlane, FRBintersectAtFarPlane, FLinearColor::Green, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRBintersectAtFarPlane, FLBintersectAtFarPlane, FLinearColor::Green, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FLBintersectAtFarPlane, FLTintersectAtFarPlane, FLinearColor::Green, 2.0f, -1.0f, 77 });
+		
+		//farComfortZone - back plane
+		finalBatchedLines.Push({ FLTintersectAtFarPlane, FRTintersectAtFarPlane, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRTintersectAtFarPlane, FRBintersectAtFarPlane, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRBintersectAtFarPlane, FLBintersectAtFarPlane, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FLBintersectAtFarPlane, FLTintersectAtFarPlane, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
 
-		finalBatchedLines.Push({ FLTintersectAtFarPlane, (isOrthoMode) ? FLTintersectAtNearPlane : cameraLocation, FLinearColor::Green, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRTintersectAtFarPlane, (isOrthoMode) ? FRTintersectAtNearPlane : cameraLocation, FLinearColor::Green, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRBintersectAtFarPlane, (isOrthoMode) ? FRBintersectAtNearPlane : cameraLocation, FLinearColor::Green, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FLBintersectAtFarPlane, (isOrthoMode) ? FLBintersectAtNearPlane : cameraLocation, FLinearColor::Green, 2.0f, -1.0f, 77 });
-
-		finalBatchedLines.Push({ FLTintersectAtNearPlane, FRTintersectAtNearPlane, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRTintersectAtNearPlane, FRBintersectAtNearPlane, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FLBintersectAtNearPlane, FLTintersectAtNearPlane, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRBintersectAtNearPlane, FLBintersectAtNearPlane, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-
-		finalBatchedLines.Push({ FLTintersectAtConvergence, FRTintersectAtConvergence, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRTintersectAtConvergence, FRBintersectAtConvergence, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FLBintersectAtConvergence, FLTintersectAtConvergence, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
-		finalBatchedLines.Push({ FRBintersectAtConvergence, FLBintersectAtConvergence, FLinearColor::Yellow, 2.0f, -1.0f, 77 });
+		//farComfortZone - convergence to back plane
+		finalBatchedLines.Push({ FLTintersectAtFarPlane, FLTintersectAtConvergence, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRTintersectAtFarPlane, FRTintersectAtConvergence, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRBintersectAtFarPlane, FRBintersectAtConvergence, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FLBintersectAtFarPlane, FLBintersectAtConvergence, farComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		
+		//nearComfortZone - front plane
+		finalBatchedLines.Push({ FLTintersectAtNearPlane, FRTintersectAtNearPlane, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRTintersectAtNearPlane, FRBintersectAtNearPlane, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FLBintersectAtNearPlane, FLTintersectAtNearPlane, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRBintersectAtNearPlane, FLBintersectAtNearPlane, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+        
+		//nearComfortZone - front plane to convergence plane
+        finalBatchedLines.Push({ FRTintersectAtNearPlane, FRTintersectAtConvergence, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+        finalBatchedLines.Push({ FRBintersectAtNearPlane, FRBintersectAtConvergence, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+        finalBatchedLines.Push({ FLTintersectAtNearPlane, FLTintersectAtConvergence, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+        finalBatchedLines.Push({ FLBintersectAtNearPlane, FLBintersectAtConvergence, nearComfortZoneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+        
+		//convergencePlane
+		finalBatchedLines.Push({ FLTintersectAtConvergence, FRTintersectAtConvergence, convergencePlaneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRTintersectAtConvergence, FRBintersectAtConvergence, convergencePlaneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FLBintersectAtConvergence, FLTintersectAtConvergence, convergencePlaneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+		finalBatchedLines.Push({ FRBintersectAtConvergence, FLBintersectAtConvergence, convergencePlaneColor, batchedLineLifeTime, batchedLineThickness, batchedLineDepthPriority });
+        
+        //UKismetSystemLibrary::DrawDebugPlane(world, topPlane, nearPlane, 100, FLinearColor::White, 1000);
+        //DrawDebugPoint(world, farPlane, 200, FColor(52, 220,239), true);
+        
 	}
 
+    
 	world->LineBatcher->DrawLines(finalBatchedLines);
 }
 
@@ -335,12 +363,12 @@ FString LeiaCameraBase::GetDeviceName() const
 
 float LeiaCameraBase::GetNearPlaneDistance(const FLeiaCameraRenderingInfo& renderingInfo) const
 {
-	return (renderingInfo.Baseline * renderingInfo.ConvergenceDistance) / (renderingInfo.Baseline + 1.0f);
+	return (renderingInfo.Baseline * renderingInfo.ConvergenceDistance * 0.5f) / (renderingInfo.Baseline + 1.0f);
 }
 
 float LeiaCameraBase::GetFarPlaneDistance(const FLeiaCameraRenderingInfo& renderingInfo) const
 {
-	float farPlaneDistance = ((renderingInfo.Baseline + 1.0f) * renderingInfo.ConvergenceDistance) / renderingInfo.Baseline;
+	float farPlaneDistance = ((renderingInfo.Baseline + 1.0f) * renderingInfo.ConvergenceDistance * 2.0f) / renderingInfo.Baseline;
 	const float MAX_FAR_PLANE = 8388608.0f;
 	return FMath::Min(MAX_FAR_PLANE, farPlaneDistance);
 }
@@ -549,7 +577,7 @@ FVector LeiaCameraBase::GetCameraFrustumNearCenter(UWorld* world, const FTransfo
 	return result.ImpactPoint;
 }
 
-FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, CaptureComponent* camera) const
+FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, USceneCaptureComponent2D* camera) const
 {
 	FMatrix ViewRotationMatrix = FInverseRotationMatrix(camera->GetComponentRotation()) * FMatrix(
 		FPlane(0, 0, 1, 0),
@@ -568,7 +596,7 @@ FVector LeiaCameraBase::WorldToScreenPoint(const FVector& worldPos, CaptureCompo
 
 float LeiaCameraBase::CalculateAutoZdpShearValue(const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraRenderingInfo& renderingInfo,
 	const FLeiaCameraZdpInfo& zdpInfo, const FTransform& targetCamTransform, float interviewDistance,
-	CaptureComponent* camA , CaptureComponent* camB) const
+	USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB) const
 {
 
 	float aspectRatio = 0.0f;
@@ -618,7 +646,7 @@ float LeiaCameraBase::UpdateViews(int index, const FLeiaCameraRenderingInfo& ren
 	return posx;
 }
 
-void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, CaptureComponent* camA, CaptureComponent* camB, const FTransform& targetCamTransform)
+void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& renderingInfo, const FLeiaCameraConstructionInfo& constructionInfo, const FLeiaCameraZdpInfo& zdpInfo, USceneCaptureComponent2D* camA, USceneCaptureComponent2D* camB, const FTransform& targetCamTransform)
 {
 	CommonMatParamCollectionInst->SetScalarParameterValue("ConvergenceDistance", renderingInfo.ConvergenceDistance);
 	CommonMatParamCollectionInst->SetScalarParameterValue("FarPlaneDistance", GetFarPlaneDistance(renderingInfo));
@@ -634,54 +662,58 @@ void LeiaCameraBase::SetCommonZdpMaterialParams(const FLeiaCameraRenderingInfo& 
 
 void LeiaCameraBase::SetInterlaceMaterialParams(EScreenOrientation::Type orientation)
 {
-	InterlaceParams interlaceShaderParams;
-	GetInterlaceParams(orientation, interlaceShaderParams);
+	FDisplayConfig config = Device->GetDisplayConfig();
+	
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsX", static_cast<float>(config.numViews[0]));
+	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsY", static_cast<float>(config.numViews[1]));
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("viewRes",
+	FLinearColor(static_cast<float>(config.viewResolution[0]),
+	static_cast<float>(config.viewResolution[1]), 0.0f, 0.0f));	
+	
+	
 
-	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsX",          interlaceShaderParams.viewsX);
-	InterlaceMatParamCollectionInst->SetScalarParameterValue("viewsY",          interlaceShaderParams.viewsY);
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("viewRes",         interlaceShaderParams.viewRes);
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceVector", interlaceShaderParams.intVecs);
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatA",   interlaceShaderParams.matA);
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatB",   interlaceShaderParams.matB);
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatC",   interlaceShaderParams.matC);
-	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatD",   interlaceShaderParams.matD);
-}
+	FDisplayConfig::OrientationConfig orientationConfig = Device->GetDisplayConfig().ToScreenOrientationConfig(orientation);
 
-void LeiaCameraBase::GetInterlaceParams(EScreenOrientation::Type orientation, InterlaceParams& interlaceParams)
-{
-	const FDisplayConfig config = Device->GetDisplayConfig();
-	const FDisplayConfig::OrientationConfig orientationConfig = Device->GetDisplayConfig().ToScreenOrientationConfig(orientation);
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceVector", FLinearColor(orientationConfig.interlacingVector));
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatA", FLinearColor(orientationConfig.interlacingMatrix.M[0][0], orientationConfig.interlacingMatrix.M[0][1], orientationConfig.interlacingMatrix.M[0][2], orientationConfig.interlacingMatrix.M[0][3]));
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatB", FLinearColor(orientationConfig.interlacingMatrix.M[1][0], orientationConfig.interlacingMatrix.M[1][1], orientationConfig.interlacingMatrix.M[1][2], orientationConfig.interlacingMatrix.M[1][3]));
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatC", FLinearColor(orientationConfig.interlacingMatrix.M[2][0], orientationConfig.interlacingMatrix.M[2][1], orientationConfig.interlacingMatrix.M[2][2], orientationConfig.interlacingMatrix.M[2][3]));
+	InterlaceMatParamCollectionInst->SetVectorParameterValue("interlaceMatD", FLinearColor(static_cast<int>(orientationConfig.interlacingMatrix.M[3][0]), orientationConfig.interlacingMatrix.M[3][1], orientationConfig.interlacingMatrix.M[3][2], orientationConfig.interlacingMatrix.M[3][3]));
 
-	interlaceParams.viewsX  = static_cast<float>(config.numViews[0]);
-	interlaceParams.viewsY  = static_cast<float>(config.numViews[1]);
-	interlaceParams.viewOffset = FLinearColor(static_cast<float>(config.alignmentOffset[0]), static_cast<float>(config.alignmentOffset[1]), 0.0f, 0.0f);
-	interlaceParams.viewRes = FLinearColor(static_cast<float>(config.viewResolution[0]), static_cast<float>(config.viewResolution[1]), 0.0f, 0.0f);
-	interlaceParams.intVecs = FLinearColor(orientationConfig.interlacingVector);
-	interlaceParams.matA    = FLinearColor(orientationConfig.interlacingMatrix.M[0][0], orientationConfig.interlacingMatrix.M[0][1], orientationConfig.interlacingMatrix.M[0][2], orientationConfig.interlacingMatrix.M[0][3]);
-	interlaceParams.matB    = FLinearColor(orientationConfig.interlacingMatrix.M[1][0], orientationConfig.interlacingMatrix.M[1][1], orientationConfig.interlacingMatrix.M[1][2], orientationConfig.interlacingMatrix.M[1][3]);
-	interlaceParams.matC    = FLinearColor(orientationConfig.interlacingMatrix.M[2][0], orientationConfig.interlacingMatrix.M[2][1], orientationConfig.interlacingMatrix.M[2][2], orientationConfig.interlacingMatrix.M[2][3]);
-	interlaceParams.matD    = FLinearColor(static_cast<int>(orientationConfig.interlacingMatrix.M[3][0]), orientationConfig.interlacingMatrix.M[3][1], orientationConfig.interlacingMatrix.M[3][2], orientationConfig.interlacingMatrix.M[3][3]);
-}
-
-void LeiaCameraBase::GetViewSharpeningParams(const FDisplayConfig& config, SharpenParams& sharpenShaderParams)
-{
-	sharpenShaderParams.gamma            = config.gamma;
-	sharpenShaderParams.sharpeningCenter = 1.0f;
-	sharpenShaderParams.sharpeningSize   = FLinearColor(config.sharpeningKernelX[0], config.sharpeningKernelY[0], 0, 0);
-	sharpenShaderParams.sharpeningX      = FLinearColor(config.sharpeningKernelX[1], config.sharpeningKernelX[2], config.sharpeningKernelX[3], config.sharpeningKernelX[4]);
-	sharpenShaderParams.sharpeningY      = FLinearColor(config.sharpeningKernelY[1], config.sharpeningKernelY[2], config.sharpeningKernelY[3], config.sharpeningKernelY[4]);
-	sharpenShaderParams.textureInvSize   = FLinearColor(1.0f / config.panelResolution[0], 1.0f / config.panelResolution[1], 0, 0);
 }
 
 void LeiaCameraBase::SetViewSharpeningMaterialParams()
 {
-	SharpenParams sharpenShaderParams;
-	GetViewSharpeningParams(Device->GetDisplayConfig(), sharpenShaderParams);
 
-	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma",            sharpenShaderParams.gamma);
-	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", sharpenShaderParams.sharpeningCenter);
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize",   sharpenShaderParams.sharpeningSize);
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX",      sharpenShaderParams.sharpeningX);
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY",      sharpenShaderParams.sharpeningY);
-	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("textureInvSize",   sharpenShaderParams.textureInvSize);
+	FDisplayConfig config = Device->GetDisplayConfig();
+
+	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma", config.gamma);
+	ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", 1.0f);
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize", FLinearColor(config.sharpeningKernelX[0], config.sharpeningKernelY[0], 0, 0));
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX",
+		FLinearColor(config.sharpeningKernelX[1], config.sharpeningKernelX[2],
+			config.sharpeningKernelX[3], config.sharpeningKernelX[4]));
+	ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY",
+		FLinearColor(config.sharpeningKernelY[1], config.sharpeningKernelY[2],
+			config.sharpeningKernelY[3], config.sharpeningKernelY[4]));
+/*	const FDisplayConfig displayConfig = Device->GetDisplayConfig();
+
+	SharpenParams sharpenShaderParams;
+	GetViewSharpeningParams(displayConfig, sharpenShaderParams);
+
+	const bool is4V = (displayConfig.numViews[0] == 4) && (displayConfig.numViews[1] == 4);
+	if (is4V)
+	{
+		// Apply 4V
+		ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("gamma", sharpenShaderParams.gamma);
+		ViewSharpeningMatParamCollectionInst->SetScalarParameterValue("sharpeningCenter", sharpenShaderParams.sharpeningCenter);
+		ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningSize", sharpenShaderParams.sharpeningSize);
+		ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningX", sharpenShaderParams.sharpeningX);
+		ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("sharpeningY", sharpenShaderParams.sharpeningY);
+		ViewSharpeningMatParamCollectionInst->SetVectorParameterValue("textureInvSize", sharpenShaderParams.textureInvSize);
+	}
+	else
+	{
+		// TODO: Add non-4V sharpening here.
+	}*/
 }

@@ -7,8 +7,6 @@
 
 #include "WindowsLeiaDevice.h"
 
-//UE_LOG(LogLeia, Log, TEXT("SetFinalViewRect %d %f"), someInt, someFloat);
-
 WindowsLeiaDevice::WindowsLeiaDevice()
 {
 #if LEIA_USE_SERVICE
